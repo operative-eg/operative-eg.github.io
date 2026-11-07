@@ -86,7 +86,7 @@ label.chk{display:flex;gap:8px;align-items:center;font-size:13.5px;cursor:pointe
 /* ---------- Tables ---------- */
 .table-wrap{overflow-x:auto}
 table.t{width:100%;border-collapse:collapse;font-size:13.5px}
-.t th{background:#f8f9fc;color:var(--muted);font-weight:600;text-align:right;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+.t th{background:#f8f9fc;color:var(--muted);font-weight:600;text-align:start;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
 .t td{padding:9px 12px;border-bottom:1px solid #eef1f6;vertical-align:middle}
 .t tr:last-child td{border-bottom:none}
 .t tbody tr:hover{background:#fafbfe}
@@ -223,3 +223,39 @@ table.t{width:100%;border-collapse:collapse;font-size:13.5px}
 @media (max-width:520px){.perm-list{grid-template-columns:1fr}}
 .proof-view{text-align:center}
 .proof-view img{max-width:100%;max-height:75vh;border-radius:8px;border:1px solid var(--border)}
+
+/* ---------- الهيدر: الجرس واللغة ---------- */
+.tb-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tb-tools{display:inline-flex;gap:4px;align-items:center}
+.bell{position:relative;padding:5px 8px}
+.bell svg{width:19px;height:19px}
+.bell-n{position:absolute;top:-3px;inset-inline-end:-3px;background:var(--red);color:#fff;border-radius:99px;font-size:10.5px;
+  min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px;font-weight:700}
+.lang-btn{font-family:system-ui,sans-serif;font-weight:600}
+.login-top{display:flex;justify-content:space-between;align-items:center}
+.login-top .lang-btn{color:var(--primary)}
+a.olink{text-decoration:none;font-weight:600}
+a.olink:hover{text-decoration:underline}
+
+/* ---------- سجل الطلب ---------- */
+.timeline li.ev{display:block;padding:7px 0;border-bottom:1px dashed var(--border)}
+.timeline li.ev:last-child{border-bottom:none}
+.ev-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ev-who{font-weight:600;font-size:12.5px;color:var(--primary-600)}
+.ev-who.bot{color:#7a6a00;background:#fff7cc;border-radius:6px;padding:0 6px}
+.ev-ch{font-size:12.5px;margin-top:3px;padding-inline-start:6px}
+.order-follow .timeline{max-height:320px;overflow:auto}
+
+/* ---------- طلبات التعديل والإشعارات ---------- */
+.section-title .btn{margin-inline-start:10px;vertical-align:middle}
+.req-list{display:flex;flex-direction:column;gap:6px}
+.req-item{display:block;border:1px solid var(--border);border-radius:8px;padding:8px 12px;text-decoration:none;color:inherit}
+.req-item:hover{background:var(--gray-50)}
+.req-item.unread{background:var(--primary-50);border-color:#cdd8f5}
+.req-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.req-fin{grid-template-columns:repeat(4,1fr)}
+.thread{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.msg{border:1px solid var(--border);border-radius:10px;padding:8px 12px;max-width:85%;background:#fff}
+.msg.me{align-self:flex-end;background:var(--primary-50);border-color:#cdd8f5}
+.msg-b{white-space:pre-wrap;margin-top:3px}
+@media (max-width:520px){ .msg{max-width:100%} .req-fin{grid-template-columns:repeat(2,1fr)} }
