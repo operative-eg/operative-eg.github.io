@@ -10,6 +10,7 @@ const STATUS = {
   processing:       { label: 'قيد التجهيز',     color: 'blue'   },
   shipped:          { label: 'سُلِّم لشركة الشحن', color: 'indigo' },
   out_for_delivery: { label: 'خرج للتوصيل',      color: 'amber'  },
+  on_hold:          { label: 'هولد (معلّق)',      color: 'orange' },
   delivered:        { label: 'تم التسليم',       color: 'green'  },
   returned:         { label: 'مرتجع',            color: 'red'    },
   cancelled:        { label: 'ملغى',             color: 'muted'  },
@@ -86,8 +87,7 @@ function modal({ title, body, footer = '', wide = false }) {
     <div class="modal-h"><h3>${title}</h3><button class="x" aria-label="إغلاق">&times;</button></div>
     <div class="modal-b">${body}</div>${footer ? `<div class="modal-f">${footer}</div>` : ''}</div>`;
   const close = () => bg.remove();
-  $('.x', bg).onclick = close;
-  bg.addEventListener('mousedown', e => { if (e.target === bg) close(); });
+  $('.x', bg).onclick = close;  // تُغلق النافذة بزر × فقط (لا تُغلق بالضغط خارجها)
   $('#modals').appendChild(bg);
   const first = $('input:not([type=checkbox]):not(:disabled),select:not(:disabled)', bg);
   if (first) setTimeout(() => first.focus(), 30);
@@ -110,7 +110,28 @@ async function busy(btn, fn) {
 const cfg = window.OPERATIVE_CONFIG || {};
 const configured = cfg.SUPABASE_URL && !/YOUR-PROJECT/.test(cfg.SUPABASE_URL) && cfg.SUPABASE_ANON_KEY && !/YOUR-ANON/.test(cfg.SUPABASE_ANON_KEY);
 const sb = configured ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
-const S = { user: null, profile: null, isAdmin: false, clients: [], myClient: null };
+// isAdmin = واجهة الشركة (مدير النظام أو موظف) — isOwner = مدير النظام فقط
+const S = { user: null, profile: null, isAdmin: false, isOwner: false, isStaff: false, perms: new Set(), staffName: '', clients: [], myClient: null };
+const can = p => S.isOwner || S.perms.has(p);
+
+// صلاحيات الموظفين
+const PERMS = [
+  ['dashboard', 'لوحة التحكم والأرقام', 'تحتاج أيضًا صلاحية عرض الطلبات'],
+  ['orders_view', 'عرض الطلبات'],
+  ['orders_edit', 'إضافة وتعديل الطلبات وتغيير حالاتها'],
+  ['orders_delete', 'حذف الطلبات'],
+  ['qp', 'إرسال الطلبات لشركة الشحن وتحديث حالات الشحنات'],
+  ['clients_view', 'عرض العملاء وأسعارهم'],
+  ['clients_edit', 'إضافة وتعديل العملاء وإنشاء حسابات دخولهم'],
+  ['settlements_view', 'عرض التسويات'],
+  ['settlements_edit', 'إنشاء التسويات وتسجيل الدفع ورفع صور التحويل'],
+];
+// الصلاحية ← ما تحتاجه لتعمل
+const PERM_NEEDS = { orders_edit: ['orders_view'], orders_delete: ['orders_view'], qp: ['orders_view'],
+  dashboard: ['orders_view'], clients_edit: ['clients_view'], settlements_edit: ['settlements_view'] };
+// العملاء لا يرون اسم شركة الشحن
+const courierText = t => !t ? '' : S.isAdmin ? t
+  : String(t).replace(/qp\s*express|qpxpress|\bqp\b|كيو\s*بي/gi, 'شركة الشحن');
 const clientName = id => (S.clients.find(c => c.id === id) || {}).name || '';
 const clientSelect = (id, allLabel, sel = '') =>
   `<select id="${id}">${allLabel ? opt('', allLabel, sel) : ''}${S.clients.map(c => opt(c.id, c.name, sel)).join('')}</select>`;
@@ -121,6 +142,7 @@ const ICON = {
   orders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
   clients: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 010 8M22 21c0-3-2-5-4-5.6"/></svg>',
   settlements: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>',
+  staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M17 3.5l1.5 1.5L21 2.5"/></svg>',
 };
 
 // =====================================================================
@@ -159,11 +181,21 @@ async function start(user) {
   S.user = user;
   const { data: p, error } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
   if (error) return renderLogin(errMsg(error));
-  if (!p || (p.role !== 'admin' && !p.client_id)) {
+  if (!p || (p.role === 'client' && !p.client_id)) {
     await sb.auth.signOut();
     return renderLogin('هذا الحساب غير مرتبط بأي عميل بعد، يُرجى التواصل مع إدارة Operative');
   }
-  S.profile = p; S.isAdmin = p.role === 'admin';
+  S.perms = new Set(); S.staffName = '';
+  if (p.role === 'staff') {
+    const { data: acc, error: e2 } = await sb.rpc('my_access');
+    if (e2) return renderLogin(errMsg(e2));
+    if (!acc || !acc.active) {
+      await sb.auth.signOut();
+      return renderLogin('هذا الحساب موقوف، يُرجى التواصل مع إدارة Operative');
+    }
+    S.perms = new Set(acc.permissions || []); S.staffName = acc.name || '';
+  }
+  S.profile = p; S.isOwner = p.role === 'admin'; S.isStaff = p.role === 'staff'; S.isAdmin = S.isOwner || S.isStaff;
   if (S.isAdmin) await loadClients();
   else {
     const { data } = await sb.from('clients').select('*').eq('id', p.client_id).single();
@@ -181,14 +213,17 @@ async function loadClients() {
 // =====================================================================
 //  الهيكل والتنقل
 // =====================================================================
-const NAV_ADMIN = [['dashboard', 'لوحة التحكم'], ['orders', 'الطلبات'], ['clients', 'العملاء'], ['settlements', 'التسويات']];
+const NAV_ADMIN = [['dashboard', 'لوحة التحكم', () => can('dashboard')], ['orders', 'الطلبات', () => can('orders_view')],
+  ['clients', 'العملاء', () => can('clients_view') || can('clients_edit')], ['settlements', 'التسويات', () => can('settlements_view')],
+  ['staff', 'الموظفين', () => S.isOwner]];
 const NAV_CLIENT = [['dashboard', 'لوحة التحكم'], ['orders', 'طلباتي'], ['settlements', 'التسويات']];
+const navItems = () => S.isAdmin ? NAV_ADMIN.filter(n => n[2]()) : NAV_CLIENT;
 
 function renderShell() {
-  const nav = S.isAdmin ? NAV_ADMIN : NAV_CLIENT;
+  const nav = navItems();
   $('#root').innerHTML = `<div class="shell">
     <aside class="sidebar">
-      <div class="brand"><b>Operative</b><div>${S.isAdmin ? 'لوحة إدارة الشركة' : esc(S.myClient?.name || '')}</div></div>
+      <div class="brand"><b>Operative</b><div>${S.isOwner ? 'لوحة إدارة الشركة' : S.isStaff ? esc(S.staffName || 'موظف') : esc(S.myClient?.name || '')}</div></div>
       <nav class="nav">${nav.map(([k, l]) => `<a href="#/${k}" data-k="${k}">${ICON[k]}<span>${l}</span></a>`).join('')}</nav>
       <div class="userbox"><div class="who ltr">${esc(S.user.email)}</div><button id="logoutBtn">خروج</button></div>
     </aside>
@@ -199,13 +234,18 @@ function renderShell() {
 
 function route() {
   if (!S.user) return;
-  const nav = S.isAdmin ? NAV_ADMIN : NAV_CLIENT;
+  const nav = navItems();
   let page = (location.hash.match(/^#\/(\w+)/) || [])[1];
-  if (!nav.some(([k]) => k === page)) page = 'dashboard';
-  $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.k === page));
   $('#pageActions').innerHTML = '';
+  if (!nav.length) {
+    setTitle('Operative');
+    $('#view').innerHTML = '<div class="empty">لم تُحدَّد لك أي صلاحيات بعد، تواصل مع مدير النظام.</div>';
+    return;
+  }
+  if (!nav.some(([k]) => k === page)) page = nav[0][0];
+  $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.k === page));
   $('#view').innerHTML = '<div class="empty">جارٍ التحميل...</div>';
-  ({ dashboard: viewDashboard, orders: viewOrders, clients: viewClients, settlements: viewSettlements })[page]();
+  ({ dashboard: viewDashboard, orders: viewOrders, clients: viewClients, settlements: viewSettlements, staff: viewStaff })[page]();
 }
 window.addEventListener('hashchange', route);
 const setTitle = t => { $('#pageTitle').textContent = t; document.title = `${t} — Operative`; };
@@ -230,7 +270,7 @@ async function viewDashboard() {
     const closed = s.delivered + s.returned;
     const rate = closed ? Math.round(s.delivered * 100 / closed) : 0;
     const cards = [
-      ['إجمالي الطلبات', s.total], ['قيد التجهيز', s.new], ['في الطريق', s.in_transit, 'indigo'],
+      ['إجمالي الطلبات', s.total], ['قيد التجهيز', s.new], ['في الطريق', s.in_transit, 'indigo'], ['منها هولد', s.on_hold ?? 0, 'orange'],
       ['تم التسليم', s.delivered, 'green'], ['مرتجع', s.returned, 'red'], ['نسبة التسليم', `${rate}%`],
       ['تحصيل متوقع (طلبات مفتوحة)', egp(s.cod_pending)], ['المحصّل', egp(s.collected), 'green'],
       [S.isAdmin ? 'إيرادات الشركة' : 'إجمالي التكلفة', egp(s.fees)],
@@ -293,17 +333,18 @@ function ordersQuery(select = '*', withCount = true) {
 
 async function viewOrders() {
   setTitle(S.isAdmin ? 'الطلبات' : 'طلباتي');
-  $('#pageActions').innerHTML = `${S.isAdmin ? `<button class="btn" id="qpSyncBtn" title="جلب آخر حالات الشحنات من QP">تحديث حالات QP</button>
-    <button class="btn ghost" id="qpSetBtn">إعدادات QP</button>` : ''}
+  const canAdd = !S.isAdmin || can('orders_edit');
+  $('#pageActions').innerHTML = `${S.isAdmin && can('qp') ? `<button class="btn" id="qpSyncBtn" title="جلب آخر حالات الشحنات من QP">تحديث حالات QP</button>` : ''}
+    ${S.isOwner ? `<button class="btn ghost" id="qpSetBtn">إعدادات QP</button>` : ''}
     <button class="btn" id="exportBtn">تصدير إلى Excel</button>
-    <button class="btn" id="importBtn">رفع طلبات من Excel</button>
-    <button class="btn primary" id="addOrderBtn">+ طلب جديد</button>`;
-  if (S.isAdmin) {
-    $('#qpSyncBtn').onclick = e => busy(e.currentTarget, qpSyncNow);
-    $('#qpSetBtn').onclick = openQpSettings;
+    ${canAdd ? `<button class="btn" id="importBtn">رفع طلبات من Excel</button>
+    <button class="btn primary" id="addOrderBtn">+ طلب جديد</button>` : ''}`;
+  if ($('#qpSyncBtn')) $('#qpSyncBtn').onclick = e => busy(e.currentTarget, qpSyncNow);
+  if ($('#qpSetBtn')) $('#qpSetBtn').onclick = openQpSettings;
+  if (canAdd) {
+    $('#addOrderBtn').onclick = () => openOrder(null);
+    $('#importBtn').onclick = openImport;
   }
-  $('#addOrderBtn').onclick = () => openOrder(null);
-  $('#importBtn').onclick = openImport;
   $('#exportBtn').onclick = e => busy(e.currentTarget, exportOrders);
   selected = new Set();
   $('#view').innerHTML = `<div class="toolbar">
@@ -324,18 +365,19 @@ async function loadOrders() {
   if (error) return fail(error);
   const rows = data || [];
   const A = S.isAdmin;
+  const SEL = A && (can('qp') || can('orders_edit'));  // عمود التحديد للعمليات الجماعية
   $('#oPanel').innerHTML = `<div class="table-wrap"><table class="t"><thead><tr>
-    ${A ? '<th class="w1"><input type="checkbox" id="selAll"></th>' : ''}
+    ${SEL ? '<th class="w1"><input type="checkbox" id="selAll"></th>' : ''}
     <th>رقم</th>${A ? '<th class="hide-sm">العميل</th>' : ''}<th>المستلم</th><th class="hide-sm">المحافظة</th><th>التحصيل</th><th>الحالة</th>
     <th class="hide-sm">رقم التتبع</th><th class="hide-sm">التاريخ</th></tr></thead><tbody>
     ${rows.map(o => `<tr class="click ${selected.has(o.id) ? 'selected' : ''}" data-id="${o.id}">
-      ${A ? `<td><input type="checkbox" class="sel" ${selected.has(o.id) ? 'checked' : ''}></td>` : ''}
+      ${SEL ? `<td><input type="checkbox" class="sel" ${selected.has(o.id) ? 'checked' : ''}></td>` : ''}
       <td class="num"><b>${orderNo(o)}</b>${o.client_ref ? `<div class="muted small">${esc(o.client_ref)}</div>` : ''}</td>
       ${A ? `<td class="hide-sm">${esc(clientName(o.client_id))}</td>` : ''}
       <td>${esc(o.customer_name)}<div class="muted small"><span class="ltr">${esc(o.customer_phone)}</span></div></td>
       <td class="hide-sm">${esc(o.governorate)}<div class="muted small">${esc(o.city || '')}</div></td>
       <td class="num">${money(o.cod_amount)}</td><td>${badge(o.status)}</td>
-      <td class="small hide-sm"><span class="ltr">${esc(o.qp_tracking || '')}</span>${o.qp_status ? `<div class="muted small">${esc(o.qp_status)}</div>` : ''}</td><td class="num small hide-sm">${dt(o.created_at)}</td></tr>`).join('')
+      <td class="small hide-sm"><span class="ltr">${esc(o.qp_tracking || '')}</span>${o.qp_status ? `<div class="muted small">${esc(courierText(o.qp_status))}</div>` : ''}</td><td class="num small hide-sm">${dt(o.created_at)}</td></tr>`).join('')
       || `<tr><td colspan="9" class="empty">لا توجد طلبات${OF.q || OF.status || OF.client ? ' مطابقة للبحث' : ' بعد'}</td></tr>`}
     </tbody></table></div>
     <div class="pager"><span>${count ? `${from + 1}–${from + rows.length} من ${count}` : ''}</span>
@@ -360,14 +402,14 @@ function renderBulk() {
   const el = $('#bulk'); if (!el) return;
   if (!S.isAdmin || !selected.size) { el.innerHTML = ''; return; }
   el.innerHTML = `<div class="bulkbar"><b>تم تحديد ${selected.size} طلب</b>
-    <button class="btn primary sm" id="bulkQp">إرسال إلى QP</button>
-    <span class="sep"></span>
+    ${can('qp') ? '<button class="btn primary sm" id="bulkQp">إرسال إلى QP</button>' : ''}
+    ${can('orders_edit') ? `<span class="sep"></span>
     <span>تغيير الحالة إلى:</span><select id="bulkStatus">${statusOptions('shipped')}</select>
-    <button class="btn sm" id="bulkApply">تطبيق</button>
+    <button class="btn sm" id="bulkApply">تطبيق</button>` : ''}
     <button class="btn ghost sm" id="bulkClear">إلغاء التحديد</button></div>`;
   $('#bulkClear').onclick = () => { selected.clear(); loadOrders(); };
-  $('#bulkQp').onclick = sendToQp;
-  $('#bulkApply').onclick = e => busy(e.currentTarget, async () => {
+  if ($('#bulkQp')) $('#bulkQp').onclick = sendToQp;
+  if ($('#bulkApply')) $('#bulkApply').onclick = e => busy(e.currentTarget, async () => {
     const st = $('#bulkStatus').value;
     const { error } = await sb.from('orders').update({ status: st }).in('id', [...selected]);
     if (error) return fail(error);
@@ -516,7 +558,7 @@ async function exportOrders() {
 async function openOrder(o) {
   const isNew = !o; o = o || { pieces: 1, allow_open: true, status: 'new' };
   const A = S.isAdmin;
-  const editable = A || isNew || o.status === 'new';
+  const editable = A ? can('orders_edit') : (isNew || o.status === 'new');
   const dis = editable ? '' : 'disabled';
   const body = `<form id="orderForm" class="grid g2">
     ${A ? `<label class="f span-all"><span>العميل *</span><select name="client_id" required ${isNew ? '' : 'disabled'}>
@@ -534,21 +576,21 @@ async function openOrder(o) {
     <label class="f span-all"><span>ملاحظات</span><input name="notes" value="${esc(o.notes)}" ${dis}></label>
     <label class="chk span-all"><input type="checkbox" name="allow_open" ${o.allow_open ? 'checked' : ''} ${dis}> متاح معاينة الشحنة <span class="hint">(أزل العلامة إذا كنت لا تريد أن يفتح المستلم الشحنة قبل الاستلام)</span></label>
     ${A && !isNew ? `<div class="section-title span-all">الشحن والتحصيل</div>
-      <label class="f"><span>الحالة</span><select name="status">${statusOptions(o.status)}</select></label>
-      <label class="f"><span>رقم التتبع (QP)</span><input name="qp_tracking" dir="ltr" value="${esc(o.qp_tracking)}"></label>
-      <label class="f"><span>حالة الشحنة عند QP</span><input name="qp_status" value="${esc(o.qp_status)}"></label>
-      <label class="f"><span>المبلغ المحصّل <span class="hint">(المسلَّم: إذا تُرك فارغًا = المطلوب — المرتجع: ما دفعه المستلم إن وُجد)</span></span><input name="collected_amount" type="number" step="0.01" value="${esc(o.collected_amount)}"></label>
+      <label class="f"><span>الحالة</span><select name="status" ${dis}>${statusOptions(o.status)}</select></label>
+      <label class="f"><span>رقم التتبع (QP)</span><input name="qp_tracking" dir="ltr" value="${esc(o.qp_tracking)}" ${dis}></label>
+      <label class="f"><span>حالة الشحنة عند QP</span><input name="qp_status" value="${esc(o.qp_status)}" ${dis}></label>
+      <label class="f"><span>المبلغ المحصّل <span class="hint">(المسلَّم: إذا تُرك فارغًا = المطلوب — المرتجع: ما دفعه المستلم إن وُجد)</span></span><input name="collected_amount" type="number" step="0.01" value="${esc(o.collected_amount)}" ${dis}></label>
       <div class="section-title span-all">الرسوم <span class="hint">— تُحسب تلقائيًا من أسعار العميل، ويمكن تعديلها هنا</span></div>
       <div class="grid g3 span-all">
-        <label class="f"><span>الشحن</span><input name="shipping_fee" type="number" step="0.01" value="${esc(o.shipping_fee)}"></label>
-        <label class="f"><span>التجهيز والتغليف</span><input name="fulfillment_fee" type="number" step="0.01" value="${esc(o.fulfillment_fee)}"></label>
-        <label class="f"><span>المرتجع</span><input name="return_fee" type="number" step="0.01" value="${esc(o.return_fee)}"></label>
+        <label class="f"><span>الشحن</span><input name="shipping_fee" type="number" step="0.01" value="${esc(o.shipping_fee)}" ${dis}></label>
+        <label class="f"><span>التجهيز والتغليف</span><input name="fulfillment_fee" type="number" step="0.01" value="${esc(o.fulfillment_fee)}" ${dis}></label>
+        <label class="f"><span>المرتجع</span><input name="return_fee" type="number" step="0.01" value="${esc(o.return_fee)}" ${dis}></label>
       </div>` : ''}
     ${!isNew ? `<div class="section-title span-all">متابعة الطلب</div>
       <div class="span-all grid g2"><div><ul class="timeline" id="oEvents"><li class="muted">...</li></ul></div>
       <dl class="kv small"><dt>الحالة</dt><dd>${badge(o.status)}</dd>
         ${o.qp_tracking ? `<dt>رقم التتبع</dt><dd><span class="ltr">${esc(o.qp_tracking)}</span></dd>` : ''}
-        ${o.qp_status ? `<dt>عند شركة الشحن</dt><dd>${esc(o.qp_status)}</dd>` : ''}
+        ${o.qp_status ? `<dt>عند شركة الشحن</dt><dd>${esc(courierText(o.qp_status))}</dd>` : ''}
         ${o.status === 'returned' ? `<dt>التكلفة (المرتجع + التجهيز)</dt><dd>${egp(+o.return_fee + +o.fulfillment_fee)}</dd>`
           : `<dt>التكلفة (الشحن + التجهيز)</dt><dd>${egp(+o.shipping_fee + +o.fulfillment_fee)}</dd>`}
         ${['delivered', 'returned'].includes(o.status) ? `<dt>المحصّل</dt><dd>${egp(o.collected_amount)}</dd>` : ''}
@@ -558,7 +600,7 @@ async function openOrder(o) {
   const footer = `${editable ? `<button class="btn primary" id="oSave">${isNew ? 'إضافة الطلب' : 'حفظ'}</button>` : ''}
     <span class="spacer"></span>
     ${!isNew && !A && o.status === 'new' ? '<button class="btn danger" id="oCancel">إلغاء الطلب</button>' : ''}
-    ${!isNew && A && !o.settlement_id ? '<button class="btn danger" id="oDelete">حذف</button>' : ''}`;
+    ${!isNew && A && can('orders_delete') && !o.settlement_id ? '<button class="btn danger" id="oDelete">حذف</button>' : ''}`;
   const m = modal({ title: isNew ? 'طلب جديد' : `الطلب ${orderNo(o)}${A ? ' — ' + esc(clientName(o.client_id)) : ''}`, body, footer, wide: true });
 
   if (!isNew) {
@@ -818,8 +860,11 @@ function openImport() {
 // =====================================================================
 async function viewClients() {
   setTitle('العملاء');
-  $('#pageActions').innerHTML = '<button class="btn primary" id="addClientBtn">+ عميل جديد</button>';
-  $('#addClientBtn').onclick = () => openClient(null);
+  const E = can('clients_edit');
+  if (E) {
+    $('#pageActions').innerHTML = '<button class="btn primary" id="addClientBtn">+ عميل جديد</button>';
+    $('#addClientBtn').onclick = () => openClient(null);
+  }
   await loadClients();
   const { data: profs } = await sb.from('profiles').select('client_id,email').eq('role', 'client');
   const hasLogin = new Set((profs || []).map(p => p.client_id).filter(Boolean));
@@ -833,8 +878,8 @@ async function viewClients() {
       <td class="num hide-sm">${money(c.fulfillment_fee)}</td>
       <td class="num hide-sm">${money(c.return_fee)}</td><td class="num hide-sm">${money(c.default_shipping_fee)}</td>
       <td>${hasLogin.has(c.id) ? `<span class="badge b-green">مفعّل</span> <span class="muted small ltr">${esc(c.login_email)}</span>`
-        : `<button class="btn sm" data-login>إنشاء حساب</button>`}</td>
-      <td><button class="btn sm" data-edit>تعديل</button></td></tr>`).join('')
+        : E ? `<button class="btn sm" data-login>إنشاء حساب</button>` : '<span class="muted small">لا يوجد</span>'}</td>
+      <td><button class="btn sm" data-edit>${E ? 'تعديل' : 'عرض'}</button></td></tr>`).join('')
       || '<tr><td colspan="9" class="empty">لا يوجد عملاء بعد، اضغط "عميل جديد"</td></tr>'}
     </tbody></table></div></div>`;
   $$('#view tr[data-id]').forEach(tr => {
@@ -846,6 +891,7 @@ async function viewClients() {
 
 async function openClient(c) {
   const isNew = !c; c = c || { active: true, fulfillment_fee: 0, return_fee: 0, default_shipping_fee: 0 };
+  const E = can('clients_edit');
   let rates = {};
   if (!isNew) {
     const { data } = await sb.from('client_shipping_rates').select('*').eq('client_id', c.id);
@@ -875,8 +921,12 @@ async function openClient(c) {
       <td><input type="number" step="0.01" min="0" class="r-ret" value="${rates[g]?.return_price ?? ''}" placeholder="${esc(c.return_fee)}"></td></tr>`).join('')}
     </tbody></table></div>
   </form>`;
-  const m = modal({ title: isNew ? 'عميل جديد' : `تعديل — ${esc(c.name)}`, body, wide: true,
-    footer: `<button class="btn primary" id="cSave">${isNew ? 'إضافة العميل' : 'حفظ'}</button>` });
+  const m = modal({ title: isNew ? 'عميل جديد' : `${E ? 'تعديل' : 'بيانات'} — ${esc(c.name)}`, body, wide: true,
+    footer: `${E ? `<button class="btn primary" id="cSave">${isNew ? 'إضافة العميل' : 'حفظ'}</button>` : ''}
+      <span class="spacer"></span>${!isNew && S.isOwner ? '<button class="btn danger" id="cDelete">حذف العميل</button>' : ''}` });
+  if (!E) $$('#clientForm input, #clientForm select', m.el).forEach(i => i.disabled = true);
+  if ($('#cDelete', m.el)) $('#cDelete', m.el).onclick = () => deleteClient(c, m);
+  if (!E) return;
   $('[name=default_shipping_fee]', m.el).oninput = e => $$('.r-ship', m.el).forEach(i => i.placeholder = e.target.value);
   $('[name=return_fee]', m.el).oninput = e => $$('.r-ret', m.el).forEach(i => i.placeholder = e.target.value);
   $('#cSave', m.el).onclick = e => {
@@ -904,6 +954,33 @@ async function openClient(c) {
       if (isNew && await confirmBox(`هل تريد إنشاء حساب دخول لـ <b>${esc(res.data.name)}</b> الآن؟`, 'نعم، أنشئ الحساب')) openLogin(res.data);
     });
   };
+}
+
+// حذف عميل — لمدير النظام فقط. تُحفظ نسخة كاملة من بياناته في الأرشيف قبل الحذف
+async function deleteClient(c, parent) {
+  const [all, open, unsettled] = await Promise.all([
+    sb.from('orders').select('id', { count: 'exact', head: true }).eq('client_id', c.id),
+    sb.from('orders').select('id', { count: 'exact', head: true }).eq('client_id', c.id).in('status', ['new', 'processing', 'shipped', 'out_for_delivery', 'on_hold']),
+    sb.from('orders').select('id', { count: 'exact', head: true }).eq('client_id', c.id).is('settlement_id', null).in('status', ['delivered', 'returned']),
+  ]);
+  const m = modal({ title: `حذف العميل — ${esc(c.name)}`, body: `
+    <div class="alert">سيتم حذف العميل <b>${esc(c.name)}</b> نهائيًا مع كل طلباته (<b>${all.count || 0}</b> طلب) وتسوياته وأسعاره، ولن يستطيع حسابه الدخول بعد ذلك.
+      ${open.count ? `<div style="margin-top:6px"><b>تنبيه:</b> لديه ${open.count} طلب لم يُقفل بعد (جديد أو في الطريق).</div>` : ''}
+      ${unsettled.count ? `<div style="margin-top:6px"><b>تنبيه:</b> لديه ${unsettled.count} طلب مسلَّم أو مرتجع لم تتم تسويته.</div>` : ''}</div>
+    <p class="small muted">تُحفظ نسخة كاملة من بيانات العميل في أرشيف قاعدة البيانات قبل الحذف.</p>
+    <label class="f"><span>للتأكيد اكتب اسم العميل كما هو: <b>${esc(c.name)}</b></span><input id="delName" autocomplete="off"></label>`,
+    footer: '<button class="btn danger" id="delOk" disabled>حذف نهائي</button><button class="btn" id="delNo">رجوع</button>' });
+  const inp = $('#delName', m.el), ok = $('#delOk', m.el);
+  inp.oninput = () => ok.disabled = inp.value.trim() !== c.name.trim();
+  $('#delNo', m.el).onclick = m.close;
+  ok.onclick = e => busy(e.currentTarget, async () => {
+    const { data, error } = await sb.rpc('delete_client', { p_id: c.id, p_confirm_name: inp.value });
+    if (error) return fail(error);
+    toast(`تم حذف العميل ${c.name} (${data.orders} طلب، ${data.settlements} تسوية)`, 'ok');
+    m.close(); parent.close();
+    if (OF.client === c.id) OF.client = '';
+    await viewClients();
+  });
 }
 
 function genPassword() {
@@ -948,16 +1025,42 @@ function openLogin(c) {
 // =====================================================================
 //  التسويات
 // =====================================================================
+const PROOF_BUCKET = 'settlement-proofs';
+
 async function viewSettlements() {
   setTitle('التسويات');
-  if (S.isAdmin) {
+  const E = S.isAdmin && can('settlements_edit');
+  if (E) {
     $('#pageActions').innerHTML = '<button class="btn primary" id="newSetBtn">+ تسوية جديدة</button>';
     $('#newSetBtn').onclick = newSettlement;
   }
-  $('#view').innerHTML = `${S.isAdmin ? `<div class="toolbar">${clientSelect('sClient', 'كل العملاء')}</div>` : ''}<div class="panel" id="sPanel"></div>`;
+  $('#view').innerHTML = `<div class="toolbar">
+      <input class="grow" id="sQ" placeholder="بحث برقم التتبع أو رقم الطلب أو اسم المستلم — يعرض التسوية التي تحتويه">
+      ${S.isAdmin ? clientSelect('sClient', 'كل العملاء') : ''}</div>
+    <div id="sHits"></div><div class="panel" id="sPanel"></div>`;
   const load = async () => {
+    const t = $('#sQ').value.replace(/[,()*%"\\]/g, ' ').trim();
+    let ids = null;
+    $('#sHits').innerHTML = '';
+    if (t) {
+      const parts = ['qp_tracking', 'customer_name', 'customer_phone', 'client_ref'].map(c => `${c}.ilike."*${t}*"`);
+      const n = t.replace(/^#/, '');
+      if (/^\d+$/.test(n) && n.length < 10) parts.push(`order_no.eq.${n}`);
+      const { data: hits, error: he } = await sb.from('orders').select('id, order_no, customer_name, qp_tracking, status, settlement_id')
+        .or(parts.join(',')).limit(50);
+      if (he) return fail(he);
+      ids = [...new Set((hits || []).map(o => o.settlement_id).filter(Boolean))];
+      const free = (hits || []).filter(o => !o.settlement_id);
+      if (free.length) $('#sHits').innerHTML = `<div class="alert info small">طلبات مطابقة لم تدخل أي تسوية بعد:
+        ${free.slice(0, 10).map(o => `${orderNo(o)} ${o.qp_tracking ? `(<span class="ltr">${esc(o.qp_tracking)}</span>)` : ''} ${badge(o.status)}`).join('، ')}</div>`;
+      if (!ids.length) {
+        $('#sPanel').innerHTML = `<div class="empty">لا توجد تسوية تحتوي على «${esc(t)}»</div>`;
+        return;
+      }
+    }
     let q = sb.from('settlements').select('*').order('created_at', { ascending: false }).limit(300);
     if (S.isAdmin && $('#sClient').value) q = q.eq('client_id', $('#sClient').value);
+    if (ids) q = q.in('id', ids);
     const { data, error } = await q;
     if (error) return fail(error);
     $('#sPanel').innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>رقم</th>${S.isAdmin ? '<th>العميل</th>' : ''}
@@ -966,10 +1069,13 @@ async function viewSettlements() {
         ${S.isAdmin ? `<td>${esc(clientName(s.client_id))}</td>` : ''}<td class="num hide-sm">${dt(s.created_at)}</td>
         <td class="num hide-sm">${s.orders_count}</td><td class="num hide-sm">${money(s.total_collected)}</td><td class="num hide-sm">${money(s.total_fees)}</td>
         <td>${signed(s.net_amount)}</td>
-        <td>${s.status === 'paid' ? `<span class="badge b-green">مدفوعة</span> <span class="muted small">${dt(s.paid_at)}</span>` : '<span class="badge b-amber">غير مدفوعة</span>'}</td></tr>`).join('')
+        <td>${s.status === 'paid' ? `<span class="badge b-green">مدفوعة</span> <span class="muted small">${dt(s.paid_at)}</span>` : '<span class="badge b-amber">غير مدفوعة</span>'}
+          ${s.proof_path ? '<span class="badge b-blue" title="مرفق صورة التحويل">إيصال</span>' : ''}</td></tr>`).join('')
         || `<tr><td colspan="8" class="empty">لا توجد تسويات بعد</td></tr>`}</tbody></table></div>`;
-    $$('#sPanel tr[data-id]').forEach(tr => tr.onclick = () => openSettlement((data || []).find(s => s.id === tr.dataset.id), load));
+    $$('#sPanel tr[data-id]').forEach(tr => tr.onclick = () => openSettlement((data || []).find(s => s.id === tr.dataset.id), load, t));
   };
+  let timer;
+  $('#sQ').oninput = () => { clearTimeout(timer); timer = setTimeout(load, 350); };
   if (S.isAdmin) $('#sClient').onchange = load;
   await load();
 }
@@ -981,10 +1087,29 @@ const feeRow = o => `<td class="num">${money(o.collected_amount)}</td>
   <td class="num">${money(o.fulfillment_fee)}</td>
   <td class="num">${money(orderCost(o))}</td><td>${signed(o.net_amount)}</td>`;
 const feeHead = '<th>المحصّل</th><th>الشحن</th><th>المرتجع</th><th>التجهيز</th><th>التكلفة</th><th>الصافي</th>';
+const trackCell = o => `<td class="num small">${o.qp_tracking ? `<span class="ltr">${esc(o.qp_tracking)}</span>` : '<span class="muted">—</span>'}</td>`;
+// نص البحث داخل جدول التسوية
+const orderSearchText = o => normAr([o.order_no, '#' + o.order_no, o.qp_tracking, o.customer_name, o.customer_phone, o.client_ref].join(' '));
+
+// فلترة صفوف جدول حسب مربع البحث
+function bindRowFilter(input, rowsSel, countEl) {
+  const run = () => {
+    const t = normAr(input.value);
+    let shown = 0;
+    $$(rowsSel).forEach(tr => {
+      const ok = !t || (tr.dataset.s || '').includes(t);
+      tr.style.display = ok ? '' : 'none'; if (ok) shown++;
+    });
+    if (countEl) countEl.textContent = t ? `${shown} نتيجة` : '';
+  };
+  input.oninput = run; run();
+}
 
 function newSettlement() {
   const m = modal({ title: 'تسوية جديدة', wide: true,
-    body: `<div class="toolbar">${clientSelect('nsClient', '— اختر العميل —')}</div><div id="nsBody"><p class="muted">اختر العميل لعرض الطلبات المسلّمة والمرتجعة التي لم تُسوَّ بعد.</p></div>`,
+    body: `<div class="toolbar">${clientSelect('nsClient', '— اختر العميل —')}
+      <input class="grow" id="nsQ" placeholder="بحث برقم التتبع أو رقم الطلب أو الاسم"><span class="muted small" id="nsQn"></span></div>
+      <div id="nsBody"><p class="muted">اختر العميل لعرض الطلبات المسلّمة والمرتجعة التي لم تُسوَّ بعد.</p></div>`,
     footer: '<button class="btn primary" id="nsSave" disabled>تأكيد التسوية</button>' });
   let rows = [];
   const recalc = () => {
@@ -1006,11 +1131,13 @@ function newSettlement() {
     rows = data || [];
     if (!rows.length) { $('#nsBody', m.el).innerHTML = '<div class="empty">لا توجد طلبات جاهزة للتسوية لهذا العميل</div>'; return; }
     $('#nsBody', m.el).innerHTML = `<div class="stmt-totals" id="nsTot"></div><div class="table-wrap" style="max-height:50vh;overflow:auto">
-      <table class="t"><thead><tr><th class="w1"><input type="checkbox" id="nsAll" checked></th><th>رقم</th><th>المستلم</th><th>الحالة</th><th>تاريخ الإقفال</th>${feeHead}</tr></thead>
-      <tbody>${rows.map(o => `<tr><td><input type="checkbox" class="nsSel" value="${o.id}" checked></td><td class="num">${orderNo(o)}</td>
-        <td>${esc(o.customer_name)}</td><td>${badge(o.status)}</td><td class="num small">${dt(o.closed_at)}</td>${feeRow(o)}</tr>`).join('')}</tbody></table></div>`;
+      <table class="t"><thead><tr><th class="w1"><input type="checkbox" id="nsAll" checked></th><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>الحالة</th><th>تاريخ الإقفال</th>${feeHead}</tr></thead>
+      <tbody>${rows.map(o => `<tr class="nsRow" data-s="${esc(orderSearchText(o))}"><td><input type="checkbox" class="nsSel" value="${o.id}" checked></td><td class="num">${orderNo(o)}</td>
+        ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${badge(o.status)}</td><td class="num small">${dt(o.closed_at)}</td>${feeRow(o)}</tr>`).join('')}</tbody></table></div>`;
     $$('.nsSel', m.el).forEach(c => c.onchange = recalc);
-    $('#nsAll', m.el).onchange = ev => { $$('.nsSel', m.el).forEach(c => c.checked = ev.target.checked); recalc(); };
+    // «تحديد الكل» يطبَّق على الصفوف الظاهرة فقط (بعد البحث)
+    $('#nsAll', m.el).onchange = ev => { $$('.nsRow', m.el).filter(tr => tr.style.display !== 'none').forEach(tr => $('.nsSel', tr).checked = ev.target.checked); recalc(); };
+    bindRowFilter($('#nsQ', m.el), '#modals .nsRow', $('#nsQn', m.el));
     recalc();
   };
   $('#nsSave', m.el).onclick = e => busy(e.currentTarget, async () => {
@@ -1024,45 +1151,101 @@ function newSettlement() {
   });
 }
 
-async function openSettlement(s, reload) {
+// ---------- صورة التحويل ----------
+async function uploadProof(s, file) {
+  if (!file) return null;
+  if (file.size > 10 * 1024 * 1024) throw new Error('حجم الملف أكبر من 10 ميجا');
+  const ext = ((file.name.match(/\.(\w+)$/) || [])[1] || (file.type.split('/')[1] || 'jpg')).toLowerCase();
+  const path = `${s.client_id}/${s.settlement_no}-${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from(PROOF_BUCKET).upload(path, file, { contentType: file.type || undefined, upsert: false });
+  if (error) throw error;
+  const { error: e2 } = await sb.from('settlements').update({ proof_path: path }).eq('id', s.id);
+  if (e2) throw e2;
+  s.proof_path = path;
+  return path;
+}
+
+async function showProof(s) {
+  const { data, error } = await sb.storage.from(PROOF_BUCKET).createSignedUrl(s.proof_path, 3600);
+  if (error) return fail(error);
+  const url = data.signedUrl;
+  const isPdf = /\.pdf$/i.test(s.proof_path);
+  modal({ title: `صورة التحويل — تسوية رقم ${s.settlement_no}`, wide: true,
+    body: isPdf ? `<p><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">فتح ملف التحويل (PDF)</a></p>`
+      : `<div class="proof-view"><img src="${esc(url)}" alt="صورة التحويل"></div>`,
+    footer: `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">فتح في نافذة جديدة</a>` });
+}
+
+function openProofUpload(s, done) {
+  const m = modal({ title: s.proof_path ? 'تغيير صورة التحويل' : 'رفع صورة التحويل', body: `<form class="grid" id="prF">
+      <label class="f"><span>صورة التحويل أو الإيصال (صورة أو PDF — حتى 10 ميجا)</span>
+        <input type="file" name="proof" accept="image/*,application/pdf" required></label>
+      ${s.proof_path ? '<p class="hint" style="margin:0">ستحل الصورة الجديدة محل الصورة الحالية في التسوية.</p>' : ''}</form>`,
+    footer: '<button class="btn primary" id="prOk">رفع</button>' });
+  $('#prOk', m.el).onclick = e => {
+    const inp = $('[name=proof]', m.el);
+    if (!inp.files[0]) return toast('اختر الملف أولًا', 'err');
+    busy(e.currentTarget, async () => {
+      try { await uploadProof(s, inp.files[0]); } catch (err) { return fail(err); }
+      toast('تم رفع صورة التحويل', 'ok'); m.close(); done();
+    });
+  };
+}
+
+async function openSettlement(s, reload, q = '') {
   const { data: orders, error } = await sb.from('orders').select('*').eq('settlement_id', s.id).order('order_no');
   if (error) return fail(error);
   const client = S.clients.find(c => c.id === s.client_id) || {};
-  const stmt = `<div class="stmt-head"><div><div class="logo">Operative</div><div class="muted small">كشف تسوية حساب</div></div>
+  const head = `<div class="stmt-head"><div><div class="logo">Operative</div><div class="muted small">كشف تسوية حساب</div></div>
       <dl class="kv small"><dt>رقم التسوية</dt><dd>${s.settlement_no}</dd><dt>العميل</dt><dd>${esc(client.name || '')}</dd>
       <dt>التاريخ</dt><dd>${dt(s.created_at)}</dd><dt>الحالة</dt><dd>${s.status === 'paid' ? `مدفوعة ${dt(s.paid_at)}${s.payment_ref ? ' — ' + esc(s.payment_ref) : ''}` : 'غير مدفوعة'}</dd></dl></div>
     <div class="stmt-totals"><div><span class="muted small">عدد الطلبات</span><b>${s.orders_count}</b></div>
       <div><span class="muted small">إجمالي المحصّل</span><b>${egp(s.total_collected)}</b></div>
       <div><span class="muted small">إجمالي التكلفة</span><b>${egp(s.total_fees)}</b></div>
-      <div><span class="muted small">الصافي للعميل</span><b>${egp(s.net_amount)}</b></div></div>
-    <table class="t"><thead><tr><th>رقم</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}</tr></thead>
-    <tbody>${(orders || []).map(o => `<tr><td class="num">${orderNo(o)}${o.client_ref ? ` <span class="muted small">(${esc(o.client_ref)})</span>` : ''}</td>
-      <td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}</tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="4">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td></tr></tfoot></table>
+      <div><span class="muted small">الصافي للعميل</span><b>${egp(s.net_amount)}</b></div></div>`;
+  const table = `<table class="t"><thead><tr><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}</tr></thead>
+    <tbody>${(orders || []).map(o => `<tr class="stRow" data-s="${esc(orderSearchText(o))}"><td class="num">${orderNo(o)}${o.client_ref ? ` <span class="muted small">(${esc(o.client_ref)})</span>` : ''}</td>
+      ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}</tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="5">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td></tr></tfoot></table>
     ${s.notes ? `<p class="small"><b>ملاحظات:</b> ${esc(s.notes)}</p>` : ''}`;
-  const A = S.isAdmin;
-  const m = modal({ title: `تسوية رقم ${s.settlement_no}`, body: `<div class="table-wrap">${stmt}</div>`, wide: true,
+  const E = S.isAdmin && can('settlements_edit');
+  const m = modal({ title: `تسوية رقم ${s.settlement_no}`, wide: true,
+    body: `${head}<div class="toolbar"><input class="grow" id="stQ" placeholder="بحث داخل التسوية: رقم التتبع، رقم الطلب، الاسم" value="${esc(q)}">
+      <span class="muted small" id="stQn"></span></div><div class="table-wrap">${table}</div>`,
     footer: `<button class="btn primary" id="stPrint">طباعة / حفظ PDF</button>
-      ${A && s.status !== 'paid' ? '<button class="btn" id="stPaid">تسجيل الدفع</button>' : ''}
+      ${s.proof_path ? '<button class="btn" id="stProof">عرض صورة التحويل</button>' : ''}
+      ${E && s.status !== 'paid' ? '<button class="btn" id="stPaid">تسجيل الدفع</button>' : ''}
+      ${E ? `<button class="btn" id="stUpload">${s.proof_path ? 'تغيير صورة التحويل' : 'رفع صورة التحويل'}</button>` : ''}
       <span class="spacer"></span>
-      ${A && s.status !== 'paid' ? '<button class="btn danger" id="stDel">إلغاء التسوية</button>' : ''}` });
+      ${E && s.status !== 'paid' ? '<button class="btn danger" id="stDel">إلغاء التسوية</button>' : ''}` });
+  bindRowFilter($('#stQ', m.el), '#modals .stRow', $('#stQn', m.el));
+  const refresh = async () => {
+    m.close(); await reload();
+    const { data: s2 } = await sb.from('settlements').select('*').eq('id', s.id).maybeSingle();
+    if (s2) openSettlement(s2, reload);
+  };
   $('#stPrint', m.el).onclick = () => {
-    $('#printArea').innerHTML = stmt; document.body.classList.add('printing');
+    $('#printArea').innerHTML = head + table; document.body.classList.add('printing');
     window.print();
     setTimeout(() => { document.body.classList.remove('printing'); $('#printArea').innerHTML = ''; }, 300);
   };
+  if ($('#stProof', m.el)) $('#stProof', m.el).onclick = () => showProof(s);
+  if ($('#stUpload', m.el)) $('#stUpload', m.el).onclick = () => openProofUpload(s, refresh);
   const paid = $('#stPaid', m.el);
   if (paid) paid.onclick = () => {
     const pm = modal({ title: 'تسجيل الدفع', body: `<form class="grid" id="payF">
       <label class="f"><span>طريقة / مرجع الدفع</span><input name="payment_ref" placeholder="مثال: إنستاباي، تحويل بنكي، نقدًا"></label>
+      <label class="f"><span>صورة التحويل <span class="hint">(اختياري — صورة أو PDF)</span></span><input type="file" id="payProof" accept="image/*,application/pdf"></label>
       <label class="f"><span>ملاحظات</span><input name="notes" value="${esc(s.notes)}"></label></form>`,
       footer: '<button class="btn primary" id="payOk">تأكيد</button>' });
     $('#payOk', pm.el).onclick = e => busy(e.currentTarget, async () => {
       const f = formValues($('#payF', pm.el));
+      const file = $('#payProof', pm.el).files[0];
+      if (file) { try { await uploadProof(s, file); } catch (err) { return fail(err); } }
       const { error } = await sb.from('settlements').update({ status: 'paid', paid_at: new Date().toISOString(),
         payment_ref: nz(f.payment_ref), notes: nz(f.notes) }).eq('id', s.id);
       if (error) return fail(error);
-      toast('تم تسجيل الدفع', 'ok'); pm.close(); m.close(); reload();
+      toast('تم تسجيل الدفع', 'ok'); pm.close(); refresh();
     });
   };
   const del = $('#stDel', m.el);
@@ -1071,6 +1254,109 @@ async function openSettlement(s, reload) {
     const { error } = await sb.from('settlements').delete().eq('id', s.id);
     if (error) return fail(error);
     toast('تم إلغاء التسوية', 'ok'); m.close(); reload();
+  };
+}
+
+// =====================================================================
+//  الموظفين (لمدير النظام فقط)
+// =====================================================================
+async function viewStaff() {
+  setTitle('الموظفين');
+  $('#pageActions').innerHTML = '<button class="btn primary" id="addStaffBtn">+ موظف جديد</button>';
+  $('#addStaffBtn').onclick = () => openStaff(null);
+  const { data, error } = await sb.from('staff_members').select('*').order('created_at');
+  if (error) return fail(error);
+  const label = k => (PERMS.find(p => p[0] === k) || [k, k])[1];
+  $('#view').innerHTML = `<div class="alert info small">الموظف يدخل على نفس الموقع ويرى فقط الصفحات والعمليات المسموح له بها. إعدادات الربط مع شركة الشحن، وحذف العملاء، وإدارة الموظفين متاحة لك وحدك.</div>
+    <div class="panel"><div class="table-wrap"><table class="t"><thead><tr><th>الاسم</th><th class="hide-sm">البريد</th><th>الصلاحيات</th><th>الحالة</th><th></th></tr></thead><tbody>
+    ${(data || []).map(u => `<tr data-id="${u.id}"><td><b>${esc(u.name)}</b>${u.phone ? `<div class="muted small ltr">${esc(u.phone)}</div>` : ''}</td>
+      <td class="hide-sm"><span class="ltr small">${esc(u.email)}</span></td>
+      <td class="small">${u.permissions.length ? u.permissions.map(label).map(esc).join('، ') : '<span class="muted">بدون صلاحيات</span>'}</td>
+      <td>${!u.user_id ? '<span class="badge b-amber">لم يُنشأ الحساب</span>' : u.active ? '<span class="badge b-green">مفعّل</span>' : '<span class="badge b-muted">موقوف</span>'}</td>
+      <td><button class="btn sm" data-edit>تعديل</button></td></tr>`).join('')
+      || '<tr><td colspan="5" class="empty">لا يوجد موظفون بعد، اضغط "موظف جديد"</td></tr>'}
+    </tbody></table></div></div>`;
+  $$('#view tr[data-id]').forEach(tr => $('[data-edit]', tr).onclick = () => openStaff((data || []).find(u => u.id === tr.dataset.id)));
+}
+
+function openStaff(u) {
+  const isNew = !u; u = u || { active: true, permissions: ['orders_view'] };
+  const needsAccount = isNew || !u.user_id;
+  const has = new Set(u.permissions || []);
+  const body = `<form id="staffF" class="grid g2">
+    <label class="f"><span>اسم الموظف *</span><input name="name" required value="${esc(u.name)}"></label>
+    <label class="f"><span>رقم الهاتف</span><input name="phone" dir="ltr" value="${esc(u.phone)}"></label>
+    <label class="f"><span>بريد الدخول *</span><input name="email" type="email" required dir="ltr" value="${esc(u.email)}" ${isNew ? '' : 'disabled'}></label>
+    ${needsAccount ? `<label class="f"><span>كلمة المرور *</span><input name="password" required minlength="6" dir="ltr" value="${genPassword()}"></label>`
+      : '<label class="chk" style="align-self:end"><input type="checkbox" name="active" ' + (u.active ? 'checked' : '') + '> الحساب مفعّل</label>'}
+    <div class="section-title span-all">الصلاحيات</div>
+    <div class="span-all perm-list">${PERMS.map(([k, l, h]) => `<label class="chk"><input type="checkbox" class="perm" value="${k}" ${has.has(k) ? 'checked' : ''}>
+      ${esc(l)}${h ? ` <span class="hint">(${esc(h)})</span>` : ''}</label>`).join('')}</div>
+  </form><div id="staffDone"></div>`;
+  const m = modal({ title: isNew ? 'موظف جديد' : `تعديل — ${esc(u.name)}`, body, wide: true,
+    footer: `<button class="btn primary" id="stSave">${isNew ? 'إضافة الموظف وإنشاء حسابه' : needsAccount ? 'حفظ وإنشاء الحساب' : 'حفظ'}</button>
+      <span class="spacer"></span>${isNew ? '' : '<button class="btn danger" id="stfDel">حذف الموظف</button>'}` });
+  // تفعيل صلاحية يفعّل ما تحتاجه تلقائيًا
+  $$('.perm', m.el).forEach(cb => cb.onchange = () => {
+    if (cb.checked) (PERM_NEEDS[cb.value] || []).forEach(k => { const x = $(`.perm[value="${k}"]`, m.el); if (x) x.checked = true; });
+    else Object.entries(PERM_NEEDS).forEach(([k, needs]) => { if (needs.includes(cb.value)) { const x = $(`.perm[value="${k}"]`, m.el); if (x) x.checked = false; } });
+  });
+  $('#stSave', m.el).onclick = e => {
+    const form = $('#staffF', m.el);
+    if (!form.reportValidity()) return;
+    const f = formValues(form);
+    const perms = $$('.perm:checked', m.el).map(c => c.value);
+    const btn = e.currentTarget;
+    busy(btn, async () => {
+      const rec = { name: f.name, phone: nz(f.phone), permissions: perms };
+      if (!needsAccount) rec.active = f.active;
+      let row = u;
+      if (isNew) {
+        rec.email = f.email.toLowerCase();
+        const r = await sb.from('staff_members').insert(rec).select().single();
+        if (r.error) return fail(/duplicate|unique/i.test(r.error.message) ? new Error('يوجد موظف بهذا البريد بالفعل') : r.error);
+        row = r.data;
+      } else {
+        const r = await sb.from('staff_members').update(rec).eq('id', u.id).select().single();
+        if (r.error) return fail(r.error);
+        row = r.data;
+      }
+      if (!needsAccount) { toast('تم الحفظ', 'ok'); m.close(); return viewStaff(); }
+      // إنشاء حساب الدخول — الخادم يربطه بالموظف تلقائيًا
+      const tmp = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY,
+        { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'op-tmp' } });
+      const { data, error } = await tmp.auth.signUp({ email: row.email, password: f.password });
+      if (error) {
+        // الحساب موجود من قبل (موظف سابق) — نعيد ربطه
+        if (/already registered|already been registered/i.test(error.message)) {
+          const { data: pr } = await sb.from('profiles').select('id, role').ilike('email', row.email).maybeSingle();
+          if (pr && pr.role === 'staff') {
+            const l = await sb.from('staff_members').update({ user_id: pr.id, active: true }).eq('id', row.id);
+            if (l.error) return fail(l.error);
+            toast('هذا البريد له حساب سابق وتم ربطه بالموظف — يدخل بكلمة المرور القديمة', 'ok'); m.close(); return viewStaff();
+          }
+          viewStaff(); return fail(new Error('هذا البريد مسجّل بحساب آخر في النظام (عميل أو مدير)، استخدم بريدًا مختلفًا'));
+        }
+        viewStaff(); return fail(error);
+      }
+      const needsConfirm = data.user && !data.session;
+      const link = location.origin + location.pathname;
+      const msg = `مرحبًا ${row.name}،\nهذه بيانات حسابك على نظام Operative:\nالرابط: ${link}\nالبريد الإلكتروني: ${row.email}\nكلمة المرور: ${f.password}`;
+      form.remove(); setTimeout(() => btn.closest('.modal-f')?.remove());
+      $('#staffDone', m.el).innerHTML = `<div class="alert ok">تم إنشاء حساب الموظف ✓</div>
+        ${needsConfirm ? '<div class="alert">يجب على الموظف تفعيل الحساب من بريده الإلكتروني أولًا.</div>' : ''}
+        <p class="small muted">أرسل هذه الرسالة إلى الموظف:</p><div class="copybox">${esc(msg)}</div>
+        <p><button class="btn sm" id="cpyBtn">نسخ الرسالة</button></p>`;
+      $('#cpyBtn', m.el).onclick = () => navigator.clipboard.writeText(msg).then(() => toast('تم النسخ', 'ok'));
+      viewStaff();
+    });
+  };
+  const del = $('#stfDel', m.el);
+  if (del) del.onclick = async () => {
+    if (!await confirmBox(`هل تريد حذف الموظف <b>${esc(u.name)}</b>؟ لن يستطيع الدخول إلى النظام بعد ذلك.`, 'حذف', true)) return;
+    const { error } = await sb.from('staff_members').delete().eq('id', u.id);
+    if (error) return fail(error);
+    toast('تم حذف الموظف', 'ok'); m.close(); viewStaff();
   };
 }
 
