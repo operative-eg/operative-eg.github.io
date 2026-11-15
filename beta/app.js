@@ -1845,7 +1845,7 @@ async function loadAccounts() {
   A.start = (s.data && s.data.start_date) || null;
 }
 const accLabel = a => a ? `${a.code} — ${a.name}` : '';
-const leafAccounts = (f = () => true, withInactive = false) => A.list.filter(a => a.level === 3 && (withInactive || a.active) && f(a));
+const leafAccounts = (f, withInactive = false) => A.list.filter(a => a.level === 3 && (withInactive || a.active) && (!f || f(a)));
 const accOptions = (sel, f, empty = '— اختر الحساب —', withInactive = false) =>
   opt('', empty, sel) + leafAccounts(f, withInactive).map(a => opt(a.id, accLabel(a) + (a.active ? '' : ' (موقوف)'), sel)).join('');
 const cashFilter = a => a.kind === 'cash' || a.kind === 'bank';
