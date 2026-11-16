@@ -1893,8 +1893,8 @@ async function accJournal() {
     $('#pageActions').innerHTML = `<button class="btn primary" id="aNew">+ قيد يومية</button><button class="btn" id="aExp">+ مصروف</button>
       <button class="btn" id="aRev">+ إيراد</button><button class="btn" id="aTr">تحويل بين الحسابات</button><button class="btn" id="aOpen">أرصدة افتتاحية</button>`;
   }
-  B.innerHTML = `<div class="alert info small">القيود التلقائية (الطلبات المسلّمة والمرتجعة، ودفع التسويات، وفواتير شركة الشحن وتحويلاتها) تُسجَّل من
-      <b class="ltr">${dt(A.start)}</b>. المصروفات والإيرادات الأخرى تُسجَّل يدويًا من الأزرار بالأعلى.</div>
+  B.innerHTML = `<div class="alert info small">${L(`القيود التلقائية (الطلبات المسلّمة والمرتجعة، ودفع التسويات، وفواتير شركة الشحن وتحويلاتها) تُسجَّل من <b class="ltr">${dt(A.start)}</b>. المصروفات والإيرادات الأخرى تُسجَّل يدويًا من الأزرار بالأعلى.`,
+      `Automatic entries (delivered and returned orders, settlement payments, courier invoices and transfers) are recorded from <b class="ltr">${dt(A.start)}</b>. Other expenses and revenue are recorded manually with the buttons above.`)}</div>
     <div class="toolbar">${dateInput('jFrom', monthStart(), 'من')}${dateInput('jTo', isoDay(), 'إلى')}
       <select id="jSrc">${opt('', 'كل القيود')}${Object.entries(SRC).map(([k, v]) => opt(k, v[0])).join('')}</select>
       <input class="grow" id="jQ" placeholder="بحث في البيان"></div><div class="panel" id="jList"></div>`;
@@ -2043,9 +2043,9 @@ function openEntryForm({ entry = null, lines = null, desc = '', date = null, kin
 // مصروف / إيراد / تحويل — نماذج مبسطة
 function openQuick(type, done) {
   const T = {
-    expense: { title: 'تسجيل مصروف', a1: 'بند المصروف *', f1: a => a.type === 'expense', a2: 'دُفع من *', ph: 'مثال: إيجار المخزن عن شهر ديسمبر' },
-    revenue: { title: 'تسجيل إيراد', a1: 'بند الإيراد *', f1: a => a.type === 'revenue', a2: 'استُلم في *', ph: 'مثال: إيراد خدمة تغليف إضافية' },
-    transfer: { title: 'تحويل بين الحسابات', a1: 'من حساب *', f1: cashFilter, a2: 'إلى حساب *', ph: 'مثال: إيداع نقدية في البنك' },
+    expense: { title: 'تسجيل مصروف', a1: 'بند المصروف *', f1: a => a.type === 'expense', a2: 'دُفع من *', ph: L('مثال: إيجار المخزن عن شهر ديسمبر', 'e.g. Warehouse rent for December') },
+    revenue: { title: 'تسجيل إيراد', a1: 'بند الإيراد *', f1: a => a.type === 'revenue', a2: 'استُلم في *', ph: L('مثال: إيراد خدمة تغليف إضافية', 'e.g. Extra packaging service') },
+    transfer: { title: 'تحويل بين الحسابات', a1: 'من حساب *', f1: cashFilter, a2: 'إلى حساب *', ph: L('مثال: إيداع نقدية في البنك', 'e.g. Cash deposit to bank') },
   }[type];
   const m = modal({ title: T.title, body: `<form id="qF" class="grid g2">
       <label class="f"><span>التاريخ *</span><input type="date" name="date" required value="${isoDay()}"></label>
@@ -2081,8 +2081,8 @@ async function openOpening(done) {
   [k.cash_main, k.bank_main, k.qp_receivable].forEach(a => a && lines.push({ a: a.id, d: '', memo: '' }));
   (sug || []).forEach(r => lines.push({ a: k.client_funds.id, c: r.amount > 0 ? +r.amount : '', d: r.amount < 0 ? -r.amount : '', client: r.client_id, memo: 'صافي طلبات لم تُسوَّ قبل البداية' }));
   openEntryForm({ lines, kind: 'opening', date: A.start, desc: 'أرصدة افتتاحية', title: 'الأرصدة الافتتاحية',
-    note: `أدخل أرصدة الخزنة والبنك، وإجمالي المبالغ المحصّلة عند شركة الشحن التي لم تُحوَّل بعد (قبل ${dt(A.start)}).
-      مستحقات العملاء محسوبة تلقائيًا من الطلبات غير المسوّاة. بعد الإدخال اضغط «موازنة الفرق» ليُسجَّل الفرق على رأس المال.` }, done);
+    note: L(`أدخل أرصدة الخزنة والبنك، وإجمالي المبالغ المحصّلة عند شركة الشحن التي لم تُحوَّل بعد (قبل ${dt(A.start)}). مستحقات العملاء محسوبة تلقائيًا من الطلبات غير المسوّاة. بعد الإدخال اضغط «موازنة الفرق» ليُسجَّل الفرق على رأس المال.`,
+      `Enter cash and bank balances, and the total collected by the courier but not yet transferred (before ${dt(A.start)}). Client balances are calculated from unsettled orders. Then press "Post the difference" to put the difference on capital.`) }, done);
 }
 
 // ---------------- دليل الحسابات ----------------
@@ -2103,7 +2103,7 @@ async function accChart() {
   $('#accBody').innerHTML = `<div class="panel"><div class="table-wrap"><table class="t tree"><thead><tr><th>الكود</th><th>اسم الحساب</th><th class="hide-sm">النوع</th><th>الرصيد</th><th class="w1"></th></tr></thead><tbody>
     ${A.list.map(a => `<tr class="lvl${a.level} ${a.active ? '' : 'inactive'}"><td class="num">${esc(a.code)}</td>
       <td class="ind${a.level}">${esc(a.name)} ${a.kind === 'cash' ? '<span class="badge b-green">خزنة</span>' : a.kind === 'bank' ? '<span class="badge b-blue">بنك</span>' : ''}
-        ${a.system_key ? '<span class="badge b-gray" title="يستخدمه النظام في القيود التلقائية">أساسي</span>' : ''}${a.active ? '' : ' <span class="badge b-muted">موقوف</span>'}</td>
+        ${a.system_key ? `<span class="badge b-gray" title="${L('يستخدمه النظام في القيود التلقائية', 'Used by automatic entries')}">أساسي</span>` : ''}${a.active ? '' : ' <span class="badge b-muted">موقوف</span>'}</td>
       <td class="hide-sm small">${ACC_TYPE[a.type]}</td><td>${amtOrDash(natural(a, roll[a.id] || 0))}</td>
       <td>${a.level === 3 ? `<button class="btn sm" data-led="${a.id}">كشف</button>${accE() ? ` <button class="btn sm" data-ed="${a.id}">تعديل</button>` : ''}` : ''}</td></tr>`).join('')}
     </tbody></table></div></div>`;
@@ -2338,8 +2338,8 @@ async function accQp() {
     $('#pageActions').innerHTML = '<button class="btn primary" id="qpUp">+ رفع فواتير شركة الشحن</button>';
     $('#qpUp').onclick = () => openQpUpload(load);
   }
-  $('#accBody').innerHTML = `<div class="alert info small">ارفع ملفات «Revenue Report» كما تنزل من شركة الشحن. يطابق النظام كل شحنة برقم التتبع،
-      ويسجّل رسوم شركة الشحن كتكلفة، ويُظهر الفروق في التسويات قبل تأكيدها. الشحنات غير المسجّلة في النظام تُسجَّل حسب البراند.</div>
+  $('#accBody').innerHTML = `<div class="alert info small">${L('ارفع ملفات «Revenue Report» كما تنزل من شركة الشحن. يطابق النظام كل شحنة برقم التتبع، ويسجّل رسوم شركة الشحن كتكلفة، ويُظهر الفروق في التسويات قبل تأكيدها. الشحنات غير المسجّلة في النظام تُسجَّل حسب البراند.',
+      'Upload "Revenue Report" files as downloaded from the courier. Each shipment is matched by tracking number, courier fees are recorded as cost, and differences show in settlements before confirmation. Shipments not in the system are recorded by brand.')}</div>
     <div class="panel" id="qpList"></div>`;
   async function load() {
     const { data, error } = await sb.from('qp_invoices').select('*').order('id', { ascending: false }).limit(300);
@@ -2466,7 +2466,7 @@ async function openQpInvoice(id, reload) {
       <th>المحصّل</th><th class="hide-sm">الرسوم</th><th class="hide-sm">الصافي</th><th>الطلب</th><th>المسجّل عندنا</th><th>الفرق</th></tr></thead><tbody>
       ${lines.map(l => { const o = orders[l.order_id]; const d = diffOf(l);
         return `<tr class="qvRow" data-k="${l.order_id ? (d ? 'matched diff' : 'matched') : 'out'}" data-s="${esc(normAr([l.serial, l.full_name, l.notes, o ? '#' + o.order_no : ''].join(' ')))}">
-        <td class="num"><span class="ltr">${esc(l.serial)}</span></td><td>${esc(l.full_name || '')}<div class="muted small">${esc(l.notes || '')}</div></td>
+        <td class="num"><span class="ltr">${esc(l.serial)}</span></td><td class="notr">${esc(l.full_name || '')}<div class="muted small">${esc(l.notes || '')}</div></td>
         <td class="hide-sm small">${esc(l.delivery_status || '')} ${l.type === 'return' ? '<span class="badge b-red">return</span>' : ''}</td>
         <td>${amt(l.total_amount)}</td><td class="hide-sm">${amt(l.total_fees)}</td><td class="hide-sm">${signed(l.cod)}</td>
         <td>${o ? `<a href="#" class="olink" data-oid="${o.id}">#${o.order_no}</a>` : `<span class="muted small">${esc(l.brand || '')}</span>`}</td>
