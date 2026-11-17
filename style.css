@@ -259,3 +259,31 @@ a.olink:hover{text-decoration:underline}
 .msg.me{align-self:flex-end;background:var(--primary-50);border-color:#cdd8f5}
 .msg-b{white-space:pre-wrap;margin-top:3px}
 @media (max-width:520px){ .msg{max-width:100%} .req-fin{grid-template-columns:repeat(2,1fr)} }
+
+/* ---------- الحسابات ---------- */
+.tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--border);margin-bottom:14px;scrollbar-width:thin}
+.tabs a{padding:8px 14px;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;font-weight:500;margin-bottom:-1px}
+.tabs a:hover{color:var(--text)}
+.tabs a.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+label.inl{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);white-space:nowrap}
+label.inl input{width:auto;min-width:0}
+.t.tree tr.lvl1 td{font-weight:700;background:#f8f9fc}
+.t.tree tr.lvl2 td{font-weight:600}
+.t tr.inactive td{color:var(--muted)}
+.t td.ind2{padding-inline-start:28px} .t td.ind3{padding-inline-start:48px}
+.t.fin td:last-child{text-align:end;width:180px}
+.t.fin tr.lvl1 td{font-weight:700;background:#f8f9fc;color:var(--primary-600)}
+.t.fin tr.lvl2 td{font-weight:600}
+.t.fin tr.sub td{font-style:italic;color:var(--muted);border-bottom:1px solid var(--border)}
+.t.fin tr.tot td{font-weight:700;border-top:1px solid var(--border)}
+.t.fin tr.grand td{font-weight:700;font-size:15px;background:var(--primary-50);border-top:2px solid var(--primary)}
+.t.elines td{padding:6px 6px;vertical-align:top}
+.t.elines select{min-width:200px}
+.t.elines input[type=number]{width:110px}
+.ecell{display:flex;flex-direction:column;gap:4px;min-width:150px}
+.qp-block .btn{vertical-align:middle}
+@media (max-width:520px){
+  label.inl{flex:1} label.inl input{flex:1}
+  .t.elines select{min-width:150px}
+  .t.fin td:last-child{width:auto}
+}

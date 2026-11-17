@@ -201,6 +201,76 @@ const DICT = {
   'الإسماعيلية': 'Ismailia', 'السويس': 'Suez', 'الفيوم': 'Faiyum', 'بني سويف': 'Beni Suef', 'المنيا': 'Minya', 'أسيوط': 'Assiut',
   'سوهاج': 'Sohag', 'قنا': 'Qena', 'الأقصر': 'Luxor', 'أسوان': 'Aswan', 'البحر الأحمر': 'Red Sea', 'الوادي الجديد': 'New Valley',
   'مطروح': 'Matrouh', 'شمال سيناء': 'North Sinai', 'جنوب سيناء': 'South Sinai',
+  // الحسابات
+  'الحسابات': 'Accounting', 'القيود': 'Journal', 'دليل الحسابات': 'Chart of accounts', 'كشف حساب': 'Account statement',
+  'ميزان المراجعة': 'Trial balance', 'قائمة الدخل': 'Income statement', 'الميزانية العمومية': 'Balance sheet', 'أرصدة العملاء': 'Client balances',
+  'فواتير شركة الشحن': 'Courier invoices', '+ قيد يومية': '+ Journal entry', '+ مصروف': '+ Expense', '+ إيراد': '+ Revenue',
+  'تحويل بين الحسابات': 'Transfer between accounts', 'أرصدة افتتاحية': 'Opening balances', 'الأرصدة الافتتاحية': 'Opening balances',
+  'من': 'From', 'إلى': 'To', 'في تاريخ': 'As of', 'كل القيود': 'All entries', 'بحث في البيان': 'Search description',
+  'يدوي': 'Manual', 'افتتاحي': 'Opening', 'طلب': 'Order', 'تسوية': 'Settlement', 'فاتورة شركة الشحن': 'Courier invoice', 'تحويل شركة الشحن': 'Courier transfer',
+  'رقم': 'No.', 'التاريخ': 'Date', 'البيان': 'Description', 'النوع': 'Type', 'المبلغ': 'Amount', 'لا توجد قيود في هذه الفترة': 'No entries in this period',
+  'الحساب': 'Account', 'مدين': 'Debit', 'دائن': 'Credit', 'العميل / ملاحظة': 'Client / note', 'الإجمالي': 'Total', 'سجّله': 'Recorded by',
+  'فتح المصدر': 'Open source', 'حذف القيد': 'Delete entry', 'تم حذف القيد': 'Entry deleted', 'تم حفظ القيد': 'Entry saved',
+  'هل تريد حذف هذا القيد نهائيًا؟': 'Delete this entry permanently?', 'قيد يومية جديد': 'New journal entry', 'التاريخ *': 'Date *', 'البيان *': 'Description *',
+  'قيد أرصدة افتتاحية': 'Opening balances entry', '+ سطر': '+ Line', '— حساب موازنة الفرق —': '— Balancing account —',
+  'موازنة الفرق على هذا الحساب': 'Post the difference to this account', 'حفظ القيد': 'Save entry', '— اختر الحساب —': '— Select account —',
+  '— العميل —': '— Client —', 'ملاحظة': 'Note', 'حذف السطر': 'Remove line', '(متوازن)': '(balanced)',
+  'اختر الحساب في كل سطر': 'Select an account on every line', 'أدخل مبلغًا مدينًا أو دائنًا في كل سطر': 'Enter a debit or credit amount on every line',
+  'القيد يحتاج سطرين على الأقل': 'An entry needs at least two lines', 'القيد غير متوازن: إجمالي المدين لا يساوي إجمالي الدائن': 'Entry is not balanced: total debit ≠ total credit',
+  'القيد متوازن بالفعل': 'Entry is already balanced', 'اختر حساب موازنة الفرق': 'Select a balancing account',
+  'تسجيل مصروف': 'Record expense', 'تسجيل إيراد': 'Record revenue', 'بند المصروف *': 'Expense account *', 'بند الإيراد *': 'Revenue account *',
+  'دُفع من *': 'Paid from *', 'استُلم في *': 'Received into *', 'من حساب *': 'From account *', 'إلى حساب *': 'To account *', 'المبلغ *': 'Amount *',
+  'اختر حسابين مختلفين': 'Choose two different accounts', 'صافي طلبات لم تُسوَّ قبل البداية': 'Net of orders not settled before the start date',
+  'يوجد قيد أرصدة افتتاحية بالفعل — تم فتحه للتعديل': 'An opening balances entry already exists — opened for editing',
+  '+ حساب جديد': '+ New account', 'الكود': 'Code', 'اسم الحساب': 'Account name', 'الرصيد': 'Balance', 'كشف': 'Statement',
+  'خزنة': 'Cash', 'بنك': 'Bank', 'أساسي': 'System', 'عادي': 'Regular', 'حساب جديد': 'New account', 'الحساب الرئيسي *': 'Parent account *',
+  'الكود *': 'Code *', 'اسم الحساب *': 'Account name *', 'نوع الحساب': 'Account kind', 'الحساب مفعّل': 'Account active',
+  'هذا الكود مستخدم لحساب آخر': 'This code is used by another account', 'اختر الحساب لعرض كشفه': 'Select an account to view its statement',
+  'كل العملاء': 'All clients', 'طباعة': 'Print', 'القيد': 'Entry', 'رصيد أول المدة': 'Opening balance', 'اختر الحساب أولًا': 'Select an account first',
+  'الحركة': 'Movement', 'حركة الفترة': 'Period movement', 'الرصيد الختامي': 'Closing balance', 'لا توجد حركات': 'No movements',
+  'متوازن': 'Balanced', 'غير متوازن': 'Not balanced', 'متوازنة': 'Balanced', 'غير متوازنة': 'Not balanced',
+  'المستوى الأول': 'Level 1', 'المستوى الثاني': 'Level 2', 'المستوى الثالث (تفصيلي)': 'Level 3 (detailed)', 'مستوى العرض': 'Detail level',
+  'الأصول': 'Assets', 'الخصوم': 'Liabilities', 'حقوق الملكية': 'Equity', 'الإيرادات': 'Revenue', 'المصروفات': 'Expenses',
+  'إجمالي الإيرادات': 'Total revenue', 'إجمالي المصروفات': 'Total expenses', 'صافي الربح': 'Net profit', 'صافي الخسارة': 'Net loss',
+  'إجمالي الأصول': 'Total assets', 'إجمالي الخصوم': 'Total liabilities', 'إجمالي حقوق الملكية': 'Total equity',
+  'صافي الأرباح (الخسائر) غير المرحّلة': 'Unappropriated profit (loss)', 'إجمالي الخصوم وحقوق الملكية': 'Total liabilities and equity',
+  'أموال العملاء المحصّلة (المستحق لكل عميل)': 'Collected client funds (due to each client)', 'لا توجد أرصدة': 'No balances',
+  'الرصيد الموجب = مبلغ مستحق للعميل. السالب = مبلغ على العميل.': 'Positive = due to the client. Negative = owed by the client.',
+  'تحصيلات براندات خارج النظام (حسب البراند)': 'Collections for brands outside the system (by brand)', 'البراند': 'Brand',
+  'صافي ما حصّلته شركة الشحن لشحنات غير مسجّلة في النظام. يُسوّى بقيد يدوي عند الدفع للبراند.': 'Net collected by the courier for shipments not in the system. Settled with a manual entry when the brand is paid.',
+  '+ رفع فواتير شركة الشحن': '+ Upload courier invoices', 'الملف': 'File', 'الشحنات': 'Shipments', 'الرسوم': 'Fees', 'الصافي': 'Net', 'التحويل': 'Transfer',
+  'مستلم': 'Received', 'لم يُستلم': 'Not received', 'لم تُرفع فواتير بعد': 'No invoices uploaded yet', 'رفع فواتير شركة الشحن': 'Upload courier invoices',
+  'رفع الفواتير': 'Upload invoices', 'تاريخ الفاتورة': 'Invoice date', 'النتيجة': 'Result', 'رفعها': 'Uploaded by', 'لم يُستلم بعد': 'Not received yet',
+  'إجمالي المحصّل': 'Total collected', 'رسوم شركة الشحن': 'Courier fees', 'الصافي المستحق من شركة الشحن': 'Net due from courier',
+  'شحنات غير مسجّلة في النظام (حسب البراند)': 'Shipments not in the system (by brand)', 'كل الشحنات': 'All shipments',
+  'المسجّلة في النظام': 'In the system', 'فيها فرق': 'With difference', 'غير مسجّلة في النظام': 'Not in the system',
+  'بحث برقم التتبع أو الاسم أو الملاحظات': 'Search by tracking no., name or notes', 'الاسم': 'Name', 'الطلب': 'Order',
+  'المسجّل عندنا': 'Recorded by us', 'الفرق': 'Difference', 'تسجيل استلام التحويل': 'Record transfer received', 'إلغاء الاستلام': 'Cancel receipt',
+  'إعادة المطابقة': 'Re-match', 'حذف الفاتورة': 'Delete invoice', 'تسجيل استلام تحويل شركة الشحن': 'Record courier transfer',
+  'المبلغ المستلم *': 'Amount received *', 'تاريخ الاستلام *': 'Date received *', 'تم تسجيل الاستلام': 'Receipt recorded',
+  'إلغاء تسجيل استلام التحويل وحذف قيده؟': 'Cancel the transfer receipt and delete its entry?', 'اعتماد': 'Adopt',
+  'حذف الفاتورة وكل قيودها؟ (لا يؤثر على الطلبات)': 'Delete the invoice and all its entries? (orders are not affected)',
+  'المحصّل حسب فواتير شركة الشحن': 'Collected per courier invoices', 'مطابق': 'Matched',
+  'لم تظهر في فواتير شركة الشحن المرفوعة بعد': 'Not in uploaded courier invoices yet', 'اعتماد مبالغ شركة الشحن': 'Adopt courier amounts',
+  'تم اعتماد مبالغ شركة الشحن': 'Courier amounts adopted', 'مقارنة مع فواتير شركة الشحن:': 'Comparison with courier invoices:',
+  'دُفعت من *': 'Paid from *', '— اختر الخزنة أو البنك —': '— Select cash or bank —',
+  'عرض الحسابات والتقارير المالية': 'View accounting and financial reports',
+  'تسجيل القيود والمصروفات وإدارة دليل الحسابات وفواتير شركة الشحن': 'Record entries and expenses, manage the chart of accounts and courier invoices',
+  'هذا قيد تلقائي، يتعدّل تلقائيًا عند تعديل مصدره (الطلب أو التسوية أو فاتورة شركة الشحن).': 'This is an automatic entry; it updates when its source (order, settlement or courier invoice) changes.',
+  'حسابات «خزنة» و«بنك» تظهر في اختيار طريقة الدفع والاستلام.': '"Cash" and "Bank" accounts appear when choosing how money was paid or received.',
+  'الطلب غير موجود': 'Order not found', 'التسوية غير موجودة': 'Settlement not found', 'الفاتورة غير موجودة': 'Invoice not found',
+  'الملف ليس بصيغة Revenue Report (لم يُعثر على عمودي Serial و Total amount)': 'Not a Revenue Report file (Serial and Total amount columns not found)',
+  'كل سطور الملف مرفوعة من قبل': 'All lines in this file were uploaded before',
+  // أسماء دليل الحسابات الافتراضية
+  'الأصول المتداولة': 'Current assets', 'الخزنة الرئيسية': 'Main cash', 'البنك': 'Bank', 'مستحقات لدى شركة الشحن': 'Due from courier',
+  'عُهد وسلف': 'Advances', 'الأصول الثابتة': 'Fixed assets', 'أجهزة ومعدات': 'Equipment', 'أثاث وتجهيزات': 'Furniture & fittings',
+  'الخصوم المتداولة': 'Current liabilities', 'أموال العملاء المحصّلة': 'Collected client funds', 'تحصيلات براندات خارج النظام': 'Collections for brands outside the system',
+  'مصروفات مستحقة': 'Accrued expenses', 'رأس المال وجاري المالك': 'Capital & owner current', 'رأس المال': 'Capital', 'جاري المالك': 'Owner current account',
+  'أرباح مُرحّلة': 'Retained earnings', 'إيرادات التشغيل': 'Operating revenue', 'إيراد الشحن': 'Shipping revenue', 'إيراد التجهيز والتغليف': 'Fulfillment revenue',
+  'إيراد المرتجعات': 'Returns revenue', 'إيرادات أخرى': 'Other revenue', 'إيرادات متنوعة': 'Miscellaneous revenue', 'تكلفة الخدمة': 'Cost of service',
+  'تكلفة الشحن (رسوم شركة الشحن)': 'Shipping cost (courier fees)', 'خامات التغليف': 'Packaging materials', 'مصروفات إدارية وعمومية': 'General & administrative expenses',
+  'مرتبات وأجور': 'Salaries & wages', 'إيجار': 'Rent', 'كهرباء ومياه وإنترنت': 'Utilities & internet', 'تسويق وإعلانات': 'Marketing & ads',
+  'مصروفات نثرية': 'Sundry expenses', 'مصاريف بنكية': 'Bank charges',
 };
 // نصوص فيها أرقام أو أسماء متغيرة
 const PATTERNS = [
@@ -230,6 +300,12 @@ const PATTERNS = [
   [/^تم إرساله من قبل — رقم التتبع (.*)$/, 'Already sent — tracking no. $1'],
   [/^المحافظة غير موجودة في QP: (.*)$/, (m, a) => 'Governorate not found in QP: ' + tr(a)],
   [/^تمت المزامنة: (\d+) شحنة من (\d+) نشطة$/, 'Synced: $1 of $2 active shipments'],
+  [/^قيد رقم (\d+)$/, 'Entry $1'], [/^تعديل قيد رقم (\d+)$/, 'Edit entry $1'], [/^(\d+) قيد$/, '$1 entries'],
+  [/^فاتورة شركة الشحن رقم (\d+)$/, 'Courier invoice $1'], [/^\((\d+) في النظام\)$/, '($1 in system)'],
+  [/^\(فرق ([\d,.]+)\)$/, '(difference $1)'], [/^إجمالي (.*)$/, (m, a) => 'Total ' + tr(a)],
+  [/^اعتماد مبالغ شركة الشحن \((\d+)\)$/, 'Adopt courier amounts ($1)'],
+  [/^يوجد (\d+) طلب المبلغ المحصّل فيه عند شركة الشحن مختلف عن المسجّل في النظام\.$/, '$1 order(s) have a different collected amount at the courier than in the system.'],
+  [/^تنبيه: (\d+) طلب في هذه التسوية المبلغ المحصّل فيه مختلف عن فاتورة شركة الشحن\.$/, 'Warning: $1 order(s) in this settlement differ from the courier invoice.'],
 ];
 const MISSING = new Set();
 const AR_RE = /[؀-ۿ]/;
@@ -388,10 +464,12 @@ const PERMS = [
   ['clients_edit', 'إضافة وتعديل العملاء وإنشاء حسابات دخولهم'],
   ['settlements_view', 'عرض التسويات'],
   ['settlements_edit', 'إنشاء التسويات وتسجيل الدفع ورفع صور التحويل'],
+  ['accounting_view', 'عرض الحسابات والتقارير المالية'],
+  ['accounting_edit', 'تسجيل القيود والمصروفات وإدارة دليل الحسابات وفواتير شركة الشحن'],
 ];
 // الصلاحية ← ما تحتاجه لتعمل
 const PERM_NEEDS = { orders_edit: ['orders_view'], orders_finance: ['orders_view'], orders_delete: ['orders_view'], qp: ['orders_view'],
-  dashboard: ['orders_view'], clients_edit: ['clients_view'], settlements_edit: ['settlements_view'] };
+  dashboard: ['orders_view'], clients_edit: ['clients_view'], settlements_edit: ['settlements_view'], accounting_edit: ['accounting_view'] };
 // العملاء لا يرون اسم شركة الشحن
 const courierText = t => !t ? '' : S.isAdmin ? t
   : String(t).replace(/qp\s*express|qpxpress|\bqp\b|كيو\s*بي/gi, 'شركة الشحن');
@@ -406,6 +484,7 @@ const ICON = {
   clients: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 010 8M22 21c0-3-2-5-4-5.6"/></svg>',
   settlements: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>',
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>',
+  accounting: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h2M14 10h2M8 14h2M14 14h2M8 18h2M14 18h2"/></svg>',
   staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M17 3.5l1.5 1.5L21 2.5"/></svg>',
 };
 
@@ -480,7 +559,7 @@ async function loadClients() {
 // =====================================================================
 const NAV_ADMIN = [['dashboard', 'لوحة التحكم', () => can('dashboard')], ['orders', 'الطلبات', () => can('orders_view')],
   ['clients', 'العملاء', () => can('clients_view') || can('clients_edit')], ['settlements', 'التسويات', () => can('settlements_view')],
-  ['staff', 'الموظفين', () => S.isOwner]];
+  ['accounting', 'الحسابات', () => can('accounting_view') || can('accounting_edit')], ['staff', 'الموظفين', () => S.isOwner]];
 const NAV_CLIENT = [['dashboard', 'لوحة التحكم'], ['orders', 'طلباتي'], ['settlements', 'التسويات']];
 const navItems = () => S.isAdmin ? NAV_ADMIN.filter(n => n[2]()) : NAV_CLIENT;
 
@@ -516,7 +595,7 @@ function route() {
   if (!nav.some(([k]) => k === page)) page = nav[0][0];
   $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.k === page));
   $('#view').innerHTML = '<div class="empty">جارٍ التحميل...</div>';
-  ({ dashboard: viewDashboard, orders: viewOrders, clients: viewClients, settlements: viewSettlements, staff: viewStaff })[page]();
+  ({ dashboard: viewDashboard, orders: viewOrders, clients: viewClients, settlements: viewSettlements, accounting: viewAccounting, staff: viewStaff })[page]();
 }
 window.addEventListener('hashchange', route);
 const setTitle = t => { $('#pageTitle').textContent = t; document.title = `${tr(t)} — Operative`; };
@@ -1599,10 +1678,17 @@ function newSettlement() {
     if (error) return fail(error);
     rows = data || [];
     if (!rows.length) { $('#nsBody', m.el).innerHTML = '<div class="empty">لا توجد طلبات جاهزة للتسوية لهذا العميل</div>'; return; }
-    $('#nsBody', m.el).innerHTML = `<div class="stmt-totals" id="nsTot"></div><div class="table-wrap" style="max-height:50vh;overflow:auto">
-      <table class="t"><thead><tr><th class="w1"><input type="checkbox" id="nsAll" checked></th><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>الحالة</th><th>تاريخ الإقفال</th>${feeHead}</tr></thead>
+    const cmp = await qpCompareIds(rows.map(o => o.id));
+    const qb = qpBlock(rows, cmp);
+    $('#nsBody', m.el).innerHTML = `${qb.html}<div class="stmt-totals" id="nsTot"></div><div class="table-wrap" style="max-height:50vh;overflow:auto">
+      <table class="t"><thead><tr><th class="w1"><input type="checkbox" id="nsAll" checked></th><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>الحالة</th><th>تاريخ الإقفال</th>${feeHead}${qpHead(cmp)}</tr></thead>
       <tbody>${rows.map(o => `<tr class="nsRow" data-s="${esc(orderSearchText(o))}"><td><input type="checkbox" class="nsSel" value="${o.id}" checked></td><td class="num">${orderNo(o)}</td>
-        ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${badge(o.status)}</td><td class="num small">${dt(o.closed_at)}</td>${feeRow(o)}</tr>`).join('')}</tbody></table></div>`;
+        ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${badge(o.status)}</td><td class="num small">${dt(o.closed_at)}</td>${feeRow(o)}${qpCell(o, cmp)}</tr>`).join('')}</tbody></table></div>`;
+    if ($('#qpAdoptBtn', m.el)) $('#qpAdoptBtn', m.el).onclick = ev => busy(ev.currentTarget, async () => {
+      const { error } = await sb.rpc('qp_adopt_amount', { p_order_ids: qb.diffIds });
+      if (error) return fail(error);
+      toast('تم اعتماد مبالغ شركة الشحن', 'ok'); $('#nsClient', m.el).dispatchEvent(new Event('change'));
+    });
     $$('.nsSel', m.el).forEach(c => c.onchange = recalc);
     // «تحديد الكل» يطبَّق على الصفوف الظاهرة فقط (بعد البحث)
     $('#nsAll', m.el).onchange = ev => { $$('.nsRow', m.el).filter(tr => tr.style.display !== 'none').forEach(tr => $('.nsSel', tr).checked = ev.target.checked); recalc(); };
@@ -1665,6 +1751,8 @@ async function openSettlement(s, reload, q = '') {
   const { data: orders, error } = await sb.from('orders').select('*').eq('settlement_id', s.id).order('order_no');
   if (error) return fail(error);
   const client = S.clients.find(c => c.id === s.client_id) || {};
+  const cmp = S.isAdmin ? await qpCompareIds((orders || []).map(o => o.id)) : null;
+  const qb = qpBlock(orders || [], cmp);
   const head = `<div class="stmt-head"><div><div class="logo">Operative</div><div class="muted small">كشف تسوية حساب</div></div>
       <dl class="kv small"><dt>رقم التسوية</dt><dd>${s.settlement_no}</dd><dt>العميل</dt><dd>${esc(client.name || '')}</dd>
       <dt>التاريخ</dt><dd>${dt(s.created_at)}</dd><dt>الحالة</dt><dd>${s.status === 'paid' ? `مدفوعة ${dt(s.paid_at)}${s.payment_ref ? ' — ' + esc(s.payment_ref) : ''}` : 'غير مدفوعة'}</dd></dl></div>
@@ -1672,14 +1760,14 @@ async function openSettlement(s, reload, q = '') {
       <div><span class="muted small">إجمالي المحصّل</span><b>${egp(s.total_collected)}</b></div>
       <div><span class="muted small">إجمالي التكلفة</span><b>${egp(s.total_fees)}</b></div>
       <div><span class="muted small">الصافي للعميل</span><b>${egp(s.net_amount)}</b></div></div>`;
-  const table = `<table class="t"><thead><tr><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}</tr></thead>
+  const table = `<table class="t"><thead><tr><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}${qpHead(cmp)}</tr></thead>
     <tbody>${(orders || []).map(o => `<tr class="stRow" data-s="${esc(orderSearchText(o))}"><td class="num"><a href="#" class="olink" data-oid="${o.id}">${orderNo(o)}</a>${o.client_ref ? ` <span class="muted small">(${esc(o.client_ref)})</span>` : ''}</td>
-      ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}</tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="5">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td></tr></tfoot></table>
+      ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}${qpCell(o, cmp)}</tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="5">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td>${cmp ? '<td class="qpcol"></td>' : ''}</tr></tfoot></table>
     ${s.notes ? `<p class="small"><b>ملاحظات:</b> ${esc(s.notes)}</p>` : ''}`;
   const E = S.isAdmin && can('settlements_edit');
   const m = modal({ title: `تسوية رقم ${s.settlement_no}`, wide: true,
-    body: `${head}<div class="toolbar"><input class="grow" id="stQ" placeholder="بحث داخل التسوية: رقم التتبع، رقم الطلب، الاسم" value="${esc(q)}">
+    body: `${head}${qb.html}<div class="toolbar"><input class="grow" id="stQ" placeholder="بحث داخل التسوية: رقم التتبع، رقم الطلب، الاسم" value="${esc(q)}">
       <span class="muted small" id="stQn"></span></div><div class="table-wrap">${table}</div>`,
     footer: `<button class="btn primary" id="stPrint">طباعة / حفظ PDF</button>
       ${s.proof_path ? '<button class="btn" id="stProof">عرض صورة التحويل</button>' : ''}
@@ -1700,25 +1788,35 @@ async function openSettlement(s, reload, q = '') {
     if (o) openOrder(o, refresh);
   });
   $('#stPrint', m.el).onclick = () => {
-    $('#printArea').innerHTML = head + table; document.body.classList.add('printing');
+    $('#printArea').innerHTML = head + table; $$('#printArea .qpcol').forEach(x => x.remove()); document.body.classList.add('printing');
     window.print();
     setTimeout(() => { document.body.classList.remove('printing'); $('#printArea').innerHTML = ''; }, 300);
   };
   if ($('#stProof', m.el)) $('#stProof', m.el).onclick = () => showProof(s);
+  if ($('#qpAdoptBtn', m.el)) $('#qpAdoptBtn', m.el).onclick = e => busy(e.currentTarget, async () => {
+    const { error } = await sb.rpc('qp_adopt_amount', { p_order_ids: qb.diffIds });
+    if (error) return fail(error);
+    toast('تم اعتماد مبالغ شركة الشحن', 'ok'); refresh();
+  });
   if ($('#stUpload', m.el)) $('#stUpload', m.el).onclick = () => openProofUpload(s, refresh);
   const paid = $('#stPaid', m.el);
-  if (paid) paid.onclick = () => {
+  if (paid) paid.onclick = async () => {
+    const { data: payAccs } = await sb.from('acc_accounts').select('id, code, name, kind').not('kind', 'is', null).eq('active', true).order('code');
     const pm = modal({ title: 'تسجيل الدفع', body: `<form class="grid" id="payF">
+      ${qb.diffIds.length ? `<div class="alert">تنبيه: ${qb.diffIds.length} طلب في هذه التسوية المبلغ المحصّل فيه مختلف عن فاتورة شركة الشحن.</div>` : ''}
+      ${payAccs && payAccs.length ? `<label class="f"><span>دُفعت من *</span><select name="paid_account_id" required>${opt('', '— اختر الخزنة أو البنك —')}${payAccs.map(a => opt(a.id, `${a.code} — ${a.name}`)).join('')}</select></label>` : ''}
       <label class="f"><span>طريقة / مرجع الدفع</span><input name="payment_ref" placeholder="مثال: إنستاباي، تحويل بنكي، نقدًا"></label>
       <label class="f"><span>صورة التحويل <span class="hint">(اختياري — صورة أو PDF)</span></span><input type="file" id="payProof" accept="image/*,application/pdf"></label>
       <label class="f"><span>ملاحظات</span><input name="notes" value="${esc(s.notes)}"></label></form>`,
       footer: '<button class="btn primary" id="payOk">تأكيد</button>' });
     $('#payOk', pm.el).onclick = e => busy(e.currentTarget, async () => {
+      if (!$('#payF', pm.el).reportValidity()) return;
       const f = formValues($('#payF', pm.el));
       const file = $('#payProof', pm.el).files[0];
       if (file) { try { await uploadProof(s, file); } catch (err) { return fail(err); } }
-      const { error } = await sb.from('settlements').update({ status: 'paid', paid_at: new Date().toISOString(),
-        payment_ref: nz(f.payment_ref), notes: nz(f.notes) }).eq('id', s.id);
+      const upd = { status: 'paid', paid_at: new Date().toISOString(), payment_ref: nz(f.payment_ref), notes: nz(f.notes) };
+      if (f.paid_account_id) upd.paid_account_id = +f.paid_account_id;
+      const { error } = await sb.from('settlements').update(upd).eq('id', s.id);
       if (error) return fail(error);
       toast('تم تسجيل الدفع', 'ok'); pm.close(); refresh();
     });
@@ -1730,6 +1828,736 @@ async function openSettlement(s, reload, q = '') {
     if (error) return fail(error);
     toast('تم إلغاء التسوية', 'ok'); m.close(); reload();
   };
+}
+
+// =====================================================================
+//  الحسابات
+// =====================================================================
+const isoDay = d => (d ? new Date(d) : new Date()).toLocaleDateString('en-CA');
+const monthStart = () => { const n = new Date(); return isoDay(new Date(n.getFullYear(), n.getMonth(), 1)); };
+const yearStart = () => isoDay(new Date(new Date().getFullYear(), 0, 1));
+const A = { list: [], byId: {}, key: {}, start: null };
+async function loadAccounts() {
+  const [a, s] = await Promise.all([sb.from('acc_accounts').select('*').order('code'), sb.from('acc_settings').select('*').maybeSingle()]);
+  if (a.error) throw a.error;
+  A.list = a.data || []; A.byId = {}; A.key = {};
+  A.list.forEach(x => { A.byId[x.id] = x; if (x.system_key) A.key[x.system_key] = x; });
+  A.start = (s.data && s.data.start_date) || null;
+}
+const accLabel = a => a ? `${a.code} — ${a.name}` : '';
+const leafAccounts = (f, withInactive = false) => A.list.filter(a => a.level === 3 && (withInactive || a.active) && (!f || f(a)));
+const accOptions = (sel, f, empty = '— اختر الحساب —', withInactive = false) =>
+  opt('', empty, sel) + leafAccounts(f, withInactive).map(a => opt(a.id, accLabel(a) + (a.active ? '' : ' (موقوف)'), sel)).join('');
+const cashFilter = a => a.kind === 'cash' || a.kind === 'bank';
+const ACC_TYPE = { asset: 'الأصول', liability: 'الخصوم', equity: 'حقوق الملكية', revenue: 'الإيرادات', expense: 'المصروفات' };
+// الرصيد الطبيعي: الأصول والمصروفات مدينة، والباقي دائن
+const natural = (a, dr) => (a.type === 'asset' || a.type === 'expense') ? dr : -dr;
+const SRC = { manual: ['يدوي', 'gray'], opening: ['افتتاحي', 'indigo'], order: ['طلب', 'blue'], settlement: ['تسوية', 'green'],
+  qp_invoice: ['فاتورة شركة الشحن', 'amber'], qp_receipt: ['تحويل شركة الشحن', 'orange'] };
+const srcBadge = s => { const x = SRC[s] || [s, 'gray']; return `<span class="badge b-${x[1]}">${esc(x[0])}</span>`; };
+const ACC_TABS = [['journal', 'القيود'], ['chart', 'دليل الحسابات'], ['ledger', 'كشف حساب'], ['trial', 'ميزان المراجعة'],
+  ['income', 'قائمة الدخل'], ['balance', 'الميزانية العمومية'], ['clients', 'أرصدة العملاء'], ['qp', 'فواتير شركة الشحن']];
+const accE = () => can('accounting_edit');
+const hashParam = k => new URLSearchParams((location.hash.split('?')[1]) || '').get(k);
+const dateInput = (id, v, label) => `<label class="inl">${label} <input type="date" id="${id}" value="${esc(v || '')}"></label>`;
+const levelSelect = (id, sel = '3') => `<select id="${id}" title="مستوى العرض">${opt('1', 'المستوى الأول', sel)}${opt('2', 'المستوى الثاني', sel)}${opt('3', 'المستوى الثالث (تفصيلي)', sel)}</select>`;
+const ancestorAt = (a, level) => { while (a && a.level > level) a = A.byId[a.parent_id]; return a; };
+const amt = n => `<span class="num ltr">${money(n)}</span>`;
+const amtOrDash = n => Math.abs(+n) < 0.005 ? '<span class="muted">—</span>' : amt(n);
+
+function printHtml(html) {
+  $('#printArea').innerHTML = html; document.body.classList.add('printing');
+  window.print();
+  setTimeout(() => { document.body.classList.remove('printing'); $('#printArea').innerHTML = ''; }, 300);
+}
+const reportHead = (title, sub) => `<div class="stmt-head"><div><div class="logo">Operative</div><div class="muted small">${esc(title)}</div></div>
+  <div class="small muted">${sub}</div></div>`;
+
+async function viewAccounting() {
+  setTitle('الحسابات');
+  let tab = (location.hash.match(/^#\/accounting\/(\w+)/) || [])[1] || 'journal';
+  if (!ACC_TABS.some(t => t[0] === tab)) tab = 'journal';
+  $('#view').innerHTML = `<div class="tabs">${ACC_TABS.map(([k, l]) => `<a href="#/accounting/${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div>
+    <div id="accBody"><div class="empty">جارٍ التحميل...</div></div>`;
+  try { await loadAccounts(); } catch (e) { return fail(e); }
+  try {
+    await ({ journal: accJournal, chart: accChart, ledger: accLedger, trial: accTrial, income: accIncome,
+      balance: accBalance, clients: accClients, qp: accQp })[tab]();
+  } catch (e) { fail(e); }
+}
+
+// ---------------- القيود ----------------
+async function accJournal() {
+  const B = $('#accBody');
+  if (accE()) {
+    $('#pageActions').innerHTML = `<button class="btn primary" id="aNew">+ قيد يومية</button><button class="btn" id="aExp">+ مصروف</button>
+      <button class="btn" id="aRev">+ إيراد</button><button class="btn" id="aTr">تحويل بين الحسابات</button><button class="btn" id="aOpen">أرصدة افتتاحية</button>`;
+  }
+  B.innerHTML = `<div class="alert info small">${L(`القيود التلقائية (الطلبات المسلّمة والمرتجعة، ودفع التسويات، وفواتير شركة الشحن وتحويلاتها) تُسجَّل من <b class="ltr">${dt(A.start)}</b>. المصروفات والإيرادات الأخرى تُسجَّل يدويًا من الأزرار بالأعلى.`,
+      `Automatic entries (delivered and returned orders, settlement payments, courier invoices and transfers) are recorded from <b class="ltr">${dt(A.start)}</b>. Other expenses and revenue are recorded manually with the buttons above.`)}</div>
+    <div class="toolbar">${dateInput('jFrom', monthStart(), 'من')}${dateInput('jTo', isoDay(), 'إلى')}
+      <select id="jSrc">${opt('', 'كل القيود')}${Object.entries(SRC).map(([k, v]) => opt(k, v[0])).join('')}</select>
+      <input class="grow" id="jQ" placeholder="بحث في البيان"></div><div class="panel" id="jList"></div>`;
+  const load = async () => {
+    let q = sb.from('acc_entries').select('*, acc_lines(*)')
+      .gte('entry_date', $('#jFrom').value || '1900-01-01').lte('entry_date', $('#jTo').value || '2999-12-31')
+      .order('entry_date', { ascending: false }).order('id', { ascending: false }).limit(500);
+    if ($('#jSrc').value) q = q.eq('source', $('#jSrc').value);
+    const t = $('#jQ').value.replace(/[%,()]/g, ' ').trim();
+    if (t) q = q.ilike('description', `%${t}%`);
+    const { data, error } = await q;
+    if (error) return fail(error);
+    const rows = data || [];
+    const tot = rows.reduce((s, e) => s + e.acc_lines.reduce((x, l) => x + +l.debit, 0), 0);
+    $('#jList').innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>رقم</th><th>التاريخ</th><th>البيان</th><th class="hide-sm">النوع</th><th>المبلغ</th></tr></thead><tbody>
+      ${rows.map(e => `<tr class="click" data-id="${e.id}"><td class="num">${e.id}</td><td class="num">${dt(e.entry_date)}</td><td>${esc(e.description)}</td>
+        <td class="hide-sm">${srcBadge(e.source)}</td><td>${amt(e.acc_lines.reduce((x, l) => x + +l.debit, 0))}</td></tr>`).join('')
+        || '<tr><td colspan="5" class="empty">لا توجد قيود في هذه الفترة</td></tr>'}</tbody>
+      ${rows.length ? `<tfoot><tr><td colspan="4">${rows.length} قيد</td><td>${amt(tot)}</td></tr></tfoot>` : ''}</table></div>`;
+    $$('#jList tr[data-id]').forEach(tr => tr.onclick = () => openEntry(rows.find(e => e.id === +tr.dataset.id), load));
+  };
+  let timer;
+  ['jFrom', 'jTo', 'jSrc'].forEach(id => $('#' + id).onchange = load);
+  $('#jQ').oninput = () => { clearTimeout(timer); timer = setTimeout(load, 350); };
+  if (accE()) {
+    $('#aNew').onclick = () => openEntryForm({}, load);
+    $('#aExp').onclick = () => openQuick('expense', load);
+    $('#aRev').onclick = () => openQuick('revenue', load);
+    $('#aTr').onclick = () => openQuick('transfer', load);
+    $('#aOpen').onclick = () => openOpening(load);
+  }
+  await load();
+}
+
+async function fetchEntry(id) {
+  const { data, error } = await sb.from('acc_entries').select('*, acc_lines(*)').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function openEntry(e, reload) {
+  const lines = (e.acc_lines || []).slice().sort((a, b) => a.id - b.id);
+  const manual = e.source === 'manual' || e.source === 'opening';
+  const sd = lines.reduce((s, l) => s + +l.debit, 0), sc = lines.reduce((s, l) => s + +l.credit, 0);
+  const m = modal({ title: `قيد رقم ${e.id}`, wide: true,
+    body: `<dl class="kv small"><dt>التاريخ</dt><dd>${dt(e.entry_date)}</dd><dt>البيان</dt><dd>${esc(e.description)}</dd>
+        <dt>النوع</dt><dd>${srcBadge(e.source)}</dd><dt>سجّله</dt><dd>${esc(e.created_by_name || '')} <span class="muted small">${dtt(e.created_at)}</span></dd></dl>
+      <div class="table-wrap" style="margin-top:12px"><table class="t"><thead><tr><th>الحساب</th><th>مدين</th><th>دائن</th><th>العميل / ملاحظة</th></tr></thead><tbody>
+      ${lines.map(l => `<tr><td>${esc(accLabel(A.byId[l.account_id]))}</td><td>${amtOrDash(l.debit)}</td><td>${amtOrDash(l.credit)}</td>
+        <td class="small">${l.client_id ? `<b>${esc(clientName(l.client_id))}</b> ` : ''}${esc(l.memo || '')}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>الإجمالي</td><td>${amt(sd)}</td><td>${amt(sc)}</td><td></td></tr></tfoot></table></div>
+      ${manual ? '' : '<p class="hint">هذا قيد تلقائي، يتعدّل تلقائيًا عند تعديل مصدره (الطلب أو التسوية أو فاتورة شركة الشحن).</p>'}`,
+    footer: `${manual && accE() ? '<button class="btn primary" id="enEdit">تعديل</button>' : ''}
+      ${!manual ? '<button class="btn" id="enSrc">فتح المصدر</button>' : ''}<span class="spacer"></span>
+      ${manual && accE() ? '<button class="btn danger" id="enDel">حذف القيد</button>' : ''}` });
+  if ($('#enEdit', m.el)) $('#enEdit', m.el).onclick = () => { m.close(); openEntryForm({ entry: e }, reload); };
+  if ($('#enDel', m.el)) $('#enDel', m.el).onclick = async () => {
+    if (!await confirmBox('هل تريد حذف هذا القيد نهائيًا؟', 'حذف', true)) return;
+    const { error } = await sb.rpc('acc_entry_delete', { p_id: e.id });
+    if (error) return fail(error);
+    toast('تم حذف القيد', 'ok'); m.close(); reload();
+  };
+  if ($('#enSrc', m.el)) $('#enSrc', m.el).onclick = async () => {
+    try {
+      if (e.source === 'order') {
+        const { data: o, error } = await sb.from('orders').select('*').eq('id', e.source_id).maybeSingle();
+        if (error) throw error;
+        if (!o) return toast('الطلب غير موجود', 'err');
+        m.close(); openOrder(o, reload);
+      } else if (e.source === 'settlement') {
+        const { data: s, error } = await sb.from('settlements').select('*').eq('id', e.source_id).maybeSingle();
+        if (error) throw error;
+        if (!s) return toast('التسوية غير موجودة', 'err');
+        m.close(); openSettlement(s, reload);
+      } else { m.close(); openQpInvoice(+e.source_id, reload); }
+    } catch (err) { fail(err); }
+  };
+}
+
+// نموذج القيد اليومي (عام)
+function openEntryForm({ entry = null, lines = null, desc = '', date = null, kind = 'manual', title = '', note = '' } = {}, done) {
+  const cf = A.key.client_funds && A.key.client_funds.id;
+  const init = entry ? entry.acc_lines.slice().sort((a, b) => a.id - b.id).map(l => ({ a: l.account_id, d: +l.debit || '', c: +l.credit || '', memo: l.memo || '', client: l.client_id || '' }))
+    : (lines || [{}, {}]);
+  const isOpening = (entry ? entry.source : kind) === 'opening';
+  const m = modal({ title: title || (entry ? `تعديل قيد رقم ${entry.id}` : 'قيد يومية جديد'), wide: true,
+    body: `${note ? `<div class="alert info small">${note}</div>` : ''}<form id="eF" class="grid g3">
+      <label class="f"><span>التاريخ *</span><input type="date" name="date" required value="${esc(entry ? entry.entry_date : (date || isoDay()))}"></label>
+      <label class="f span2"><span>البيان *</span><input name="desc" required value="${esc(entry ? entry.description : desc)}"></label>
+      <label class="chk span-all"><input type="checkbox" name="opening" ${isOpening ? 'checked' : ''}> قيد أرصدة افتتاحية</label></form>
+      <div class="table-wrap"><table class="t elines"><thead><tr><th>الحساب</th><th>مدين</th><th>دائن</th><th>العميل / ملاحظة</th><th class="w1"></th></tr></thead>
+      <tbody id="eRows"></tbody><tfoot><tr><td>الإجمالي <span id="eDiff" class="small"></span></td><td id="eDr"></td><td id="eCr"></td><td colspan="2"></td></tr></tfoot></table></div>
+      <div class="toolbar" style="margin-top:10px"><button class="btn sm" id="eAdd" type="button">+ سطر</button>
+        <select id="eBalAcc" style="max-width:280px">${accOptions(isOpening && A.key.capital ? A.key.capital.id : '', null, '— حساب موازنة الفرق —')}</select>
+        <button class="btn sm" id="eBal" type="button">موازنة الفرق على هذا الحساب</button></div>`,
+    footer: '<button class="btn primary" id="eSave">حفظ القيد</button>' });
+  const rowHtml = l => `<tr class="eRow"><td><select class="eA">${accOptions(l.a, null)}</select></td>
+      <td><input class="eD" type="number" step="0.01" min="0" value="${l.d ?? ''}" dir="ltr"></td>
+      <td><input class="eC" type="number" step="0.01" min="0" value="${l.c ?? ''}" dir="ltr"></td>
+      <td><div class="ecell"><select class="eCl" ${+l.a === cf ? '' : 'style="display:none"'}>${opt('', '— العميل —', l.client)}${S.clients.map(c => opt(c.id, c.name, l.client)).join('')}</select>
+        <input class="eM" placeholder="ملاحظة" value="${esc(l.memo || '')}"></div></td>
+      <td><button type="button" class="btn sm ghost eX" title="حذف السطر">&times;</button></td></tr>`;
+  const tb = $('#eRows', m.el);
+  const totals = () => {
+    let d = 0, c = 0;
+    $$('.eRow', m.el).forEach(r => { d += num($('.eD', r).value); c += num($('.eC', r).value); });
+    $('#eDr', m.el).innerHTML = amt(d); $('#eCr', m.el).innerHTML = amt(c);
+    const diff = Math.round((d - c) * 100) / 100;
+    $('#eDiff', m.el).innerHTML = diff ? `<span class="err-txt">(فرق ${money(Math.abs(diff))})</span>` : (d ? '<span class="ok-txt">(متوازن)</span>' : '');
+    return { d, c, diff };
+  };
+  const bindRow = r => {
+    $('.eA', r).onchange = () => { $('.eCl', r).style.display = +$('.eA', r).value === cf ? '' : 'none'; };
+    $('.eD', r).oninput = () => { if (num($('.eD', r).value)) $('.eC', r).value = ''; totals(); };
+    $('.eC', r).oninput = () => { if (num($('.eC', r).value)) $('.eD', r).value = ''; totals(); };
+    $('.eX', r).onclick = () => { r.remove(); totals(); };
+  };
+  const addRow = l => { tb.insertAdjacentHTML('beforeend', rowHtml(l)); bindRow(tb.lastElementChild); };
+  init.forEach(addRow); totals();
+  $('#eAdd', m.el).onclick = () => addRow({});
+  $('#eBal', m.el).onclick = () => {
+    const { diff } = totals(); const acc = $('#eBalAcc', m.el).value;
+    if (!diff) return toast('القيد متوازن بالفعل');
+    if (!acc) return toast('اختر حساب موازنة الفرق', 'err');
+    addRow({ a: acc, d: diff < 0 ? -diff : '', c: diff > 0 ? diff : '', memo: '' }); totals();
+  };
+  $('#eSave', m.el).onclick = e => {
+    const form = $('#eF', m.el); if (!form.reportValidity()) return;
+    const f = formValues(form);
+    const ls = $$('.eRow', m.el).map(r => ({ a: $('.eA', r).value, d: num($('.eD', r).value), c: num($('.eC', r).value),
+      memo: $('.eM', r).value.trim(), client: $('.eCl', r).style.display === 'none' ? '' : $('.eCl', r).value }))
+      .filter(l => l.a || l.d || l.c);
+    if (ls.some(l => !l.a)) return toast('اختر الحساب في كل سطر', 'err');
+    if (ls.some(l => !l.d && !l.c)) return toast('أدخل مبلغًا مدينًا أو دائنًا في كل سطر', 'err');
+    if (ls.length < 2) return toast('القيد يحتاج سطرين على الأقل', 'err');
+    if (totals().diff) return toast('القيد غير متوازن: إجمالي المدين لا يساوي إجمالي الدائن', 'err');
+    busy(e.currentTarget, async () => {
+      const { error } = await sb.rpc('acc_entry_save', { p_id: entry ? entry.id : null, p_date: f.date, p_desc: f.desc,
+        p_lines: ls.map(l => ({ a: +l.a, d: l.d, c: l.c, memo: l.memo, client: l.client })), p_kind: f.opening ? 'opening' : 'manual' });
+      if (error) return fail(error);
+      toast('تم حفظ القيد', 'ok'); m.close(); done && done();
+    });
+  };
+}
+
+// مصروف / إيراد / تحويل — نماذج مبسطة
+function openQuick(type, done) {
+  const T = {
+    expense: { title: 'تسجيل مصروف', a1: 'بند المصروف *', f1: a => a.type === 'expense', a2: 'دُفع من *', ph: L('مثال: إيجار المخزن عن شهر ديسمبر', 'e.g. Warehouse rent for December') },
+    revenue: { title: 'تسجيل إيراد', a1: 'بند الإيراد *', f1: a => a.type === 'revenue', a2: 'استُلم في *', ph: L('مثال: إيراد خدمة تغليف إضافية', 'e.g. Extra packaging service') },
+    transfer: { title: 'تحويل بين الحسابات', a1: 'من حساب *', f1: cashFilter, a2: 'إلى حساب *', ph: L('مثال: إيداع نقدية في البنك', 'e.g. Cash deposit to bank') },
+  }[type];
+  const m = modal({ title: T.title, body: `<form id="qF" class="grid g2">
+      <label class="f"><span>التاريخ *</span><input type="date" name="date" required value="${isoDay()}"></label>
+      <label class="f"><span>المبلغ *</span><input type="number" name="amount" step="0.01" min="0.01" required dir="ltr"></label>
+      <label class="f"><span>${T.a1}</span><select name="a1" required>${accOptions('', T.f1)}</select></label>
+      <label class="f"><span>${T.a2}</span><select name="a2" required>${accOptions('', cashFilter)}</select></label>
+      <label class="f span-all"><span>البيان *</span><input name="desc" required placeholder="${esc(T.ph)}"></label></form>`,
+    footer: '<button class="btn primary" id="qSave">حفظ</button>' });
+  $('#qSave', m.el).onclick = e => {
+    const form = $('#qF', m.el); if (!form.reportValidity()) return;
+    const f = formValues(form); const v = num(f.amount);
+    if (f.a1 === f.a2) return toast('اختر حسابين مختلفين', 'err');
+    const lines = type === 'expense' ? [{ a: +f.a1, d: v }, { a: +f.a2, c: v }]
+      : type === 'revenue' ? [{ a: +f.a2, d: v }, { a: +f.a1, c: v }]
+      : [{ a: +f.a2, d: v }, { a: +f.a1, c: v }];
+    busy(e.currentTarget, async () => {
+      const { error } = await sb.rpc('acc_entry_save', { p_id: null, p_date: f.date, p_desc: f.desc, p_lines: lines, p_kind: 'manual' });
+      if (error) return fail(error);
+      toast('تم الحفظ', 'ok'); m.close(); done && done();
+    });
+  };
+}
+
+async function openOpening(done) {
+  const { data: exist } = await sb.from('acc_entries').select('*, acc_lines(*)').eq('source', 'opening').order('id').limit(1);
+  if (exist && exist.length) {
+    toast('يوجد قيد أرصدة افتتاحية بالفعل — تم فتحه للتعديل');
+    return openEntryForm({ entry: exist[0], title: 'الأرصدة الافتتاحية' }, done);
+  }
+  const { data: sug, error } = await sb.rpc('acc_opening_suggestion');
+  if (error) return fail(error);
+  const k = A.key; const lines = [];
+  [k.cash_main, k.bank_main, k.qp_receivable].forEach(a => a && lines.push({ a: a.id, d: '', memo: '' }));
+  (sug || []).forEach(r => lines.push({ a: k.client_funds.id, c: r.amount > 0 ? +r.amount : '', d: r.amount < 0 ? -r.amount : '', client: r.client_id, memo: 'صافي طلبات لم تُسوَّ قبل البداية' }));
+  openEntryForm({ lines, kind: 'opening', date: A.start, desc: 'أرصدة افتتاحية', title: 'الأرصدة الافتتاحية',
+    note: L(`أدخل أرصدة الخزنة والبنك، وإجمالي المبالغ المحصّلة عند شركة الشحن التي لم تُحوَّل بعد (قبل ${dt(A.start)}). مستحقات العملاء محسوبة تلقائيًا من الطلبات غير المسوّاة. بعد الإدخال اضغط «موازنة الفرق» ليُسجَّل الفرق على رأس المال.`,
+      `Enter cash and bank balances, and the total collected by the courier but not yet transferred (before ${dt(A.start)}). Client balances are calculated from unsettled orders. Then press "Post the difference" to put the difference on capital.`) }, done);
+}
+
+// ---------------- دليل الحسابات ----------------
+async function accChart() {
+  if (accE()) {
+    $('#pageActions').innerHTML = '<button class="btn primary" id="aAdd">+ حساب جديد</button>';
+    $('#aAdd').onclick = () => openAccountForm(null, viewAccounting);
+  }
+  const { data, error } = await sb.rpc('acc_trial', { p_from: null, p_to: null });
+  if (error) return fail(error);
+  const bal = {};
+  (data || []).forEach(r => { bal[r.account_id] = +r.debit - +r.credit; });
+  const roll = {};
+  A.list.filter(a => a.level === 3).forEach(a => {
+    const v = bal[a.id] || 0; roll[a.id] = v;
+    const p2 = A.byId[a.parent_id]; if (p2) { roll[p2.id] = (roll[p2.id] || 0) + v; const p1 = A.byId[p2.parent_id]; if (p1) roll[p1.id] = (roll[p1.id] || 0) + v; }
+  });
+  $('#accBody').innerHTML = `<div class="panel"><div class="table-wrap"><table class="t tree"><thead><tr><th>الكود</th><th>اسم الحساب</th><th class="hide-sm">النوع</th><th>الرصيد</th><th class="w1"></th></tr></thead><tbody>
+    ${A.list.map(a => `<tr class="lvl${a.level} ${a.active ? '' : 'inactive'}"><td class="num">${esc(a.code)}</td>
+      <td class="ind${a.level}">${esc(a.name)} ${a.kind === 'cash' ? '<span class="badge b-green">خزنة</span>' : a.kind === 'bank' ? '<span class="badge b-blue">بنك</span>' : ''}
+        ${a.system_key ? `<span class="badge b-gray" title="${L('يستخدمه النظام في القيود التلقائية', 'Used by automatic entries')}">أساسي</span>` : ''}${a.active ? '' : ' <span class="badge b-muted">موقوف</span>'}</td>
+      <td class="hide-sm small">${ACC_TYPE[a.type]}</td><td>${amtOrDash(natural(a, roll[a.id] || 0))}</td>
+      <td>${a.level === 3 ? `<button class="btn sm" data-led="${a.id}">كشف</button>${accE() ? ` <button class="btn sm" data-ed="${a.id}">تعديل</button>` : ''}` : ''}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  $$('[data-led]').forEach(b => b.onclick = () => { location.hash = `#/accounting/ledger?acc=${b.dataset.led}`; });
+  $$('[data-ed]').forEach(b => b.onclick = () => openAccountForm(A.byId[b.dataset.ed], viewAccounting));
+}
+
+function openAccountForm(a, done) {
+  const isNew = !a;
+  const parents = A.list.filter(x => x.level === 2);
+  const nextCode = pid => {
+    const p = A.byId[pid]; if (!p) return '';
+    const kids = A.list.filter(x => x.parent_id === p.id).map(x => parseInt(x.code, 10)).filter(n => !isNaN(n));
+    return String(kids.length ? Math.max(...kids) + 1 : parseInt(p.code + '01', 10));
+  };
+  const kindSel = sel => `<select name="kind">${opt('', 'عادي', sel)}${opt('cash', 'خزنة', sel)}${opt('bank', 'بنك', sel)}</select>`;
+  const m = modal({ title: isNew ? 'حساب جديد' : `تعديل — ${esc(a.name)}`, body: `<form id="acF" class="grid g2">
+      ${isNew ? `<label class="f span-all"><span>الحساب الرئيسي *</span><select name="parent" required>${opt('', '— اختر —')}${parents.map(p => opt(p.id, `${p.code} — ${p.name} (${ACC_TYPE[p.type]})`)).join('')}</select></label>` : ''}
+      <label class="f"><span>الكود *</span><input name="code" required dir="ltr" value="${esc(a ? a.code : '')}"></label>
+      <label class="f"><span>اسم الحساب *</span><input name="name" required value="${esc(a ? a.name : '')}"></label>
+      <label class="f" id="acKind" ${isNew || (a.type === 'asset' && a.system_key !== 'qp_receivable') ? '' : 'style="display:none"'}><span>نوع الحساب</span>${kindSel(a ? a.kind : '')}</label>
+      ${isNew ? '' : `<label class="chk" style="align-self:end"><input type="checkbox" name="active" ${a.active ? 'checked' : ''} ${a.system_key ? 'disabled' : ''}> الحساب مفعّل</label>`}
+      <p class="hint span-all">حسابات «خزنة» و«بنك» تظهر في اختيار طريقة الدفع والاستلام.</p></form>`,
+    footer: `<button class="btn primary" id="acSave">حفظ</button><span class="spacer"></span>${!isNew && !a.system_key ? '<button class="btn danger" id="acDel">حذف</button>' : ''}` });
+  if (isNew) $('[name=parent]', m.el).onchange = ev => {
+    $('[name=code]', m.el).value = nextCode(ev.target.value);
+    const p = A.byId[ev.target.value]; $('#acKind', m.el).style.display = p && p.type === 'asset' ? '' : 'none';
+  };
+  $('#acSave', m.el).onclick = e => {
+    const form = $('#acF', m.el); if (!form.reportValidity()) return;
+    const f = formValues(form);
+    busy(e.currentTarget, async () => {
+      const { error } = await sb.rpc('acc_account_save', { p_id: a ? a.id : null, p_parent: isNew ? +f.parent : null,
+        p_code: f.code, p_name: f.name, p_kind: nz(f.kind), p_active: isNew ? true : (a.system_key ? true : f.active) });
+      if (error) return fail(/duplicate|unique/i.test(error.message) ? new Error('هذا الكود مستخدم لحساب آخر') : error);
+      toast('تم الحفظ', 'ok'); m.close(); done && done();
+    });
+  };
+  if ($('#acDel', m.el)) $('#acDel', m.el).onclick = async () => {
+    if (!await confirmBox(`حذف الحساب <b>${esc(a.name)}</b>؟`, 'حذف', true)) return;
+    const { error } = await sb.rpc('acc_account_delete', { p_id: a.id });
+    if (error) return fail(error);
+    toast('تم الحذف', 'ok'); m.close(); done && done();
+  };
+}
+
+// ---------------- كشف حساب ----------------
+async function accLedger() {
+  const pre = hashParam('acc'), preClient = hashParam('client') || '';
+  const cf = A.key.client_funds && A.key.client_funds.id;
+  $('#accBody').innerHTML = `<div class="toolbar"><select id="lAcc" style="min-width:240px">${accOptions(pre || '', null, '— اختر الحساب —', true)}</select>
+      <select id="lClient" style="display:none">${opt('', 'كل العملاء', preClient)}${S.clients.map(c => opt(c.id, c.name, preClient)).join('')}</select>
+      ${dateInput('lFrom', yearStart(), 'من')}${dateInput('lTo', isoDay(), 'إلى')}<button class="btn" id="lPrint">طباعة</button></div>
+    <div class="panel" id="lBody"><div class="empty">اختر الحساب لعرض كشفه</div></div>`;
+  let last = '';
+  const load = async () => {
+    const acc = A.byId[$('#lAcc').value];
+    $('#lClient').style.display = acc && acc.id === cf ? '' : 'none';
+    if (!acc) { $('#lBody').innerHTML = '<div class="empty">اختر الحساب لعرض كشفه</div>'; return; }
+    const client = acc.id === cf ? nz($('#lClient').value) : null;
+    const { data, error } = await sb.rpc('acc_ledger', { p_account: acc.id, p_from: nz($('#lFrom').value), p_to: nz($('#lTo').value), p_client: client });
+    if (error) return fail(error);
+    let run = natural(acc, +data.opening), td = 0, tc = 0;
+    const rows = (data.lines || []).map(l => {
+      run += natural(acc, +l.debit - +l.credit); td += +l.debit; tc += +l.credit;
+      return `<tr class="click" data-e="${l.entry_id}"><td class="num">${dt(l.date)}</td><td class="num">${l.entry_id}</td>
+        <td>${esc(l.description)}${l.memo ? `<div class="muted small">${esc(l.memo)}</div>` : ''}${!client && l.client_id ? `<div class="small"><b>${esc(clientName(l.client_id))}</b></div>` : ''}</td>
+        <td>${amtOrDash(l.debit)}</td><td>${amtOrDash(l.credit)}</td><td>${signed(run)}</td></tr>`;
+    }).join('');
+    const title = accLabel(acc) + (client ? ' — ' + clientName(client) : '');
+    last = reportHead('كشف حساب', `${esc(title)}<br>${$('#lFrom').value ? 'من ' + dt($('#lFrom').value) + ' ' : ''}${$('#lTo').value ? 'إلى ' + dt($('#lTo').value) : ''}`);
+    const table = `<table class="t"><thead><tr><th>التاريخ</th><th>القيد</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>
+      <tr class="lvl2"><td colspan="5">رصيد أول المدة</td><td>${signed(natural(acc, +data.opening))}</td></tr>${rows}</tbody>
+      <tfoot><tr><td colspan="3">الإجمالي</td><td>${amt(td)}</td><td>${amt(tc)}</td><td>${signed(run)}</td></tr></tfoot></table>`;
+    last += table;
+    $('#lBody').innerHTML = `<div class="table-wrap">${table}</div>`;
+    $$('#lBody tr[data-e]').forEach(tr => tr.onclick = async () => { try { openEntry(await fetchEntry(+tr.dataset.e), load); } catch (e) { fail(e); } });
+  };
+  ['lAcc', 'lClient', 'lFrom', 'lTo'].forEach(id => $('#' + id).onchange = load);
+  $('#lPrint').onclick = () => last ? printHtml(last) : toast('اختر الحساب أولًا', 'err');
+  if (pre) await load();
+}
+
+// ---------------- ميزان المراجعة ----------------
+async function accTrial() {
+  $('#accBody').innerHTML = `<div class="toolbar">${dateInput('tFrom', yearStart(), 'من')}${dateInput('tTo', isoDay(), 'إلى')}${levelSelect('tLvl')}
+    <button class="btn" id="tPrint">طباعة</button></div><div class="panel" id="tBody"></div>`;
+  let last = '';
+  const load = async () => {
+    const from = nz($('#tFrom').value), to = nz($('#tTo').value), lvl = +$('#tLvl').value;
+    const { data, error } = await sb.rpc('acc_trial', { p_from: from, p_to: to });
+    if (error) return fail(error);
+    const agg = {};
+    (data || []).forEach(r => {
+      const a = ancestorAt(A.byId[r.account_id], lvl); if (!a) return;
+      const x = agg[a.id] || (agg[a.id] = { a, open: 0, d: 0, c: 0 });
+      x.open += +r.opening; x.d += +r.debit; x.c += +r.credit;
+    });
+    const list = Object.values(agg).sort((p, q) => p.a.code.localeCompare(q.a.code));
+    const T = { od: 0, oc: 0, d: 0, c: 0, cd: 0, cc: 0 };
+    const rows = list.map(x => {
+      const close = x.open + x.d - x.c;
+      T.od += Math.max(x.open, 0); T.oc += Math.max(-x.open, 0); T.d += x.d; T.c += x.c; T.cd += Math.max(close, 0); T.cc += Math.max(-close, 0);
+      return `<tr><td class="num">${esc(x.a.code)}</td><td>${esc(x.a.name)}</td><td>${amtOrDash(Math.max(x.open, 0))}</td><td>${amtOrDash(Math.max(-x.open, 0))}</td>
+        <td>${amtOrDash(x.d)}</td><td>${amtOrDash(x.c)}</td><td>${amtOrDash(Math.max(close, 0))}</td><td>${amtOrDash(Math.max(-close, 0))}</td></tr>`;
+    }).join('');
+    const ok = Math.abs(T.cd - T.cc) < 0.01;
+    const table = `<table class="t"><thead><tr><th rowspan="2">الكود</th><th rowspan="2">الحساب</th><th colspan="2">رصيد أول المدة</th><th colspan="2">حركة الفترة</th><th colspan="2">الرصيد الختامي</th></tr>
+      <tr><th>مدين</th><th>دائن</th><th>مدين</th><th>دائن</th><th>مدين</th><th>دائن</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="8" class="empty">لا توجد حركات</td></tr>'}</tbody>
+      <tfoot><tr><td colspan="2">الإجمالي ${ok ? '<span class="badge b-green">متوازن</span>' : '<span class="badge b-red">غير متوازن</span>'}</td>
+      <td>${amt(T.od)}</td><td>${amt(T.oc)}</td><td>${amt(T.d)}</td><td>${amt(T.c)}</td><td>${amt(T.cd)}</td><td>${amt(T.cc)}</td></tr></tfoot></table>`;
+    last = reportHead('ميزان المراجعة', `${from ? 'من ' + dt(from) + ' ' : ''}${to ? 'إلى ' + dt(to) : ''}`) + table;
+    $('#tBody').innerHTML = `<div class="table-wrap">${table}</div>`;
+  };
+  ['tFrom', 'tTo', 'tLvl'].forEach(id => $('#' + id).onchange = load);
+  $('#tPrint').onclick = () => printHtml(last);
+  await load();
+}
+
+// صفوف قائمة متدرجة (للدخل والميزانية): ترجع html والإجمالي
+function treeRows(type, valOf, lvl, sign = 1) {
+  const roots = A.list.filter(a => a.level === 1 && a.type === type);
+  let out = '', total = 0;
+  const kids = a => A.list.filter(x => x.parent_id === a.id);
+  const sumOf = a => a.level === 3 ? sign * (valOf[a.id] || 0) : kids(a).reduce((s, k) => s + sumOf(k), 0);
+  roots.forEach(r => {
+    const rt = sumOf(r); total += rt;
+    if (lvl >= 2) kids(r).forEach(g => {
+      const gt = sumOf(g);
+      const leaves = kids(g).filter(l => Math.abs(sumOf(l)) >= 0.005);
+      if (Math.abs(gt) < 0.005 && !leaves.length) return;
+      out += `<tr class="lvl2"><td class="ind2">${esc(g.name)}</td><td>${lvl === 2 ? signed(gt) : ''}</td></tr>`;
+      if (lvl >= 3) {
+        leaves.forEach(l => { out += `<tr><td class="ind3">${esc(l.name)}</td><td>${signed(sumOf(l))}</td></tr>`; });
+        out += `<tr class="sub"><td class="ind2">إجمالي ${esc(g.name)}</td><td>${signed(gt)}</td></tr>`;
+      }
+    });
+  });
+  return { html: out, total };
+}
+
+// ---------------- قائمة الدخل ----------------
+async function accIncome() {
+  $('#accBody').innerHTML = `<div class="toolbar">${dateInput('iFrom', monthStart(), 'من')}${dateInput('iTo', isoDay(), 'إلى')}${levelSelect('iLvl')}
+    <button class="btn" id="iPrint">طباعة</button></div><div class="panel" id="iBody"></div>`;
+  let last = '';
+  const load = async () => {
+    const from = nz($('#iFrom').value), to = nz($('#iTo').value), lvl = +$('#iLvl').value;
+    const { data, error } = await sb.rpc('acc_trial', { p_from: from, p_to: to });
+    if (error) return fail(error);
+    const v = {}; (data || []).forEach(r => { v[r.account_id] = +r.debit - +r.credit; });
+    const rev = treeRows('revenue', v, lvl, -1), exp = treeRows('expense', v, lvl, 1);
+    const net = rev.total - exp.total;
+    const table = `<table class="t fin"><tbody>
+      <tr class="lvl1"><td>الإيرادات</td><td>${lvl === 1 ? signed(rev.total) : ''}</td></tr>${rev.html}
+      ${lvl > 1 ? `<tr class="tot"><td>إجمالي الإيرادات</td><td>${signed(rev.total)}</td></tr>` : ''}
+      <tr class="lvl1"><td>المصروفات</td><td>${lvl === 1 ? signed(exp.total) : ''}</td></tr>${exp.html}
+      ${lvl > 1 ? `<tr class="tot"><td>إجمالي المصروفات</td><td>${signed(exp.total)}</td></tr>` : ''}
+      <tr class="grand"><td>${net >= 0 ? 'صافي الربح' : 'صافي الخسارة'}</td><td>${signed(net)}</td></tr></tbody></table>`;
+    last = reportHead('قائمة الدخل', `${from ? 'من ' + dt(from) + ' ' : ''}${to ? 'إلى ' + dt(to) : ''}`) + table;
+    $('#iBody').innerHTML = `<div class="table-wrap">${table}</div>`;
+  };
+  ['iFrom', 'iTo', 'iLvl'].forEach(id => $('#' + id).onchange = load);
+  $('#iPrint').onclick = () => printHtml(last);
+  await load();
+}
+
+// ---------------- الميزانية العمومية ----------------
+async function accBalance() {
+  $('#accBody').innerHTML = `<div class="toolbar">${dateInput('bTo', isoDay(), 'في تاريخ')}${levelSelect('bLvl')}
+    <button class="btn" id="bPrint">طباعة</button></div><div class="panel" id="bBody"></div>`;
+  let last = '';
+  const load = async () => {
+    const to = nz($('#bTo').value), lvl = +$('#bLvl').value;
+    const { data, error } = await sb.rpc('acc_trial', { p_from: null, p_to: to });
+    if (error) return fail(error);
+    const v = {}; (data || []).forEach(r => { v[r.account_id] = +r.debit - +r.credit; });
+    const as = treeRows('asset', v, lvl, 1), li = treeRows('liability', v, lvl, -1), eq = treeRows('equity', v, lvl, -1);
+    const rev = treeRows('revenue', v, 3, -1).total, exp = treeRows('expense', v, 3, 1).total;
+    const profit = rev - exp, right = li.total + eq.total + profit;
+    const ok = Math.abs(as.total - right) < 0.01;
+    const table = `<table class="t fin"><tbody>
+      <tr class="lvl1"><td>الأصول</td><td>${lvl === 1 ? signed(as.total) : ''}</td></tr>${as.html}
+      <tr class="grand"><td>إجمالي الأصول</td><td>${signed(as.total)}</td></tr>
+      <tr class="lvl1"><td>الخصوم</td><td>${lvl === 1 ? signed(li.total) : ''}</td></tr>${li.html}
+      ${lvl > 1 ? `<tr class="tot"><td>إجمالي الخصوم</td><td>${signed(li.total)}</td></tr>` : ''}
+      <tr class="lvl1"><td>حقوق الملكية</td><td>${lvl === 1 ? signed(eq.total + profit) : ''}</td></tr>${eq.html}
+      ${lvl > 1 ? `<tr${lvl >= 3 ? '' : ' class="lvl2"'}><td class="ind${lvl >= 3 ? 3 : 2}">صافي الأرباح (الخسائر) غير المرحّلة</td><td>${signed(profit)}</td></tr>
+        <tr class="tot"><td>إجمالي حقوق الملكية</td><td>${signed(eq.total + profit)}</td></tr>` : ''}
+      <tr class="grand"><td>إجمالي الخصوم وحقوق الملكية ${ok ? '<span class="badge b-green">متوازنة</span>' : '<span class="badge b-red">غير متوازنة</span>'}</td><td>${signed(right)}</td></tr></tbody></table>`;
+    last = reportHead('الميزانية العمومية', to ? 'في ' + dt(to) : '') + table;
+    $('#bBody').innerHTML = `<div class="table-wrap">${table}</div>`;
+  };
+  ['bTo', 'bLvl'].forEach(id => $('#' + id).onchange = load);
+  $('#bPrint').onclick = () => printHtml(last);
+  await load();
+}
+
+// ---------------- أرصدة العملاء ----------------
+async function accClients() {
+  $('#accBody').innerHTML = `<div class="toolbar">${dateInput('cTo', isoDay(), 'في تاريخ')}</div><div id="cBody"></div>`;
+  const load = async () => {
+    const to = nz($('#cTo').value);
+    const out = A.key.outside_collections;
+    const [cb, ob] = await Promise.all([sb.rpc('acc_client_balances', { p_to: to }),
+      out ? sb.rpc('acc_ledger', { p_account: out.id, p_from: null, p_to: to, p_client: null }) : Promise.resolve({ data: null })]);
+    if (cb.error) return fail(cb.error);
+    const rows = (cb.data || []).filter(r => Math.abs(+r.balance) >= 0.005).sort((a, b) => b.balance - a.balance);
+    const brands = {};
+    ((ob.data && ob.data.lines) || []).forEach(l => { const k = l.memo || 'أخرى'; brands[k] = (brands[k] || 0) + (+l.credit - +l.debit); });
+    const bl = Object.entries(brands).filter(([, v]) => Math.abs(v) >= 0.005).sort((a, b) => b[1] - a[1]);
+    $('#cBody').innerHTML = `<div class="panel"><div class="panel-h">أموال العملاء المحصّلة (المستحق لكل عميل)</div><div class="table-wrap">
+      <table class="t"><thead><tr><th>العميل</th><th>الرصيد</th><th class="w1"></th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td><b>${esc(clientName(r.client_id))}</b></td><td>${signed(r.balance)}</td>
+        <td><button class="btn sm" data-c="${r.client_id}">كشف</button></td></tr>`).join('') || '<tr><td colspan="3" class="empty">لا توجد أرصدة</td></tr>'}</tbody>
+      ${rows.length ? `<tfoot><tr><td>الإجمالي</td><td>${signed(rows.reduce((s, r) => s + +r.balance, 0))}</td><td></td></tr></tfoot>` : ''}</table></div>
+      <p class="hint" style="padding:0 16px">الرصيد الموجب = مبلغ مستحق للعميل. السالب = مبلغ على العميل.</p></div>
+      ${out ? `<div class="panel" style="margin-top:16px"><div class="panel-h">تحصيلات براندات خارج النظام (حسب البراند)</div><div class="table-wrap">
+      <table class="t"><thead><tr><th>البراند</th><th>الرصيد</th></tr></thead><tbody>
+      ${bl.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${signed(v)}</td></tr>`).join('') || '<tr><td colspan="2" class="empty">لا توجد أرصدة</td></tr>'}</tbody></table></div>
+      <p class="hint" style="padding:0 16px">صافي ما حصّلته شركة الشحن لشحنات غير مسجّلة في النظام. يُسوّى بقيد يدوي عند الدفع للبراند.</p></div>` : ''}`;
+    $$('#cBody [data-c]').forEach(b => b.onclick = () => { location.hash = `#/accounting/ledger?acc=${A.key.client_funds.id}&client=${b.dataset.c}`; });
+  };
+  $('#cTo').onchange = load;
+  await load();
+}
+
+// ---------------- فواتير شركة الشحن ----------------
+async function accQp() {
+  if (accE()) {
+    $('#pageActions').innerHTML = '<button class="btn primary" id="qpUp">+ رفع فواتير شركة الشحن</button>';
+    $('#qpUp').onclick = () => openQpUpload(load);
+  }
+  $('#accBody').innerHTML = `<div class="alert info small">${L('ارفع ملفات «Revenue Report» كما تنزل من شركة الشحن. يطابق النظام كل شحنة برقم التتبع، ويسجّل رسوم شركة الشحن كتكلفة، ويُظهر الفروق في التسويات قبل تأكيدها. الشحنات غير المسجّلة في النظام تُسجَّل حسب البراند.',
+      'Upload "Revenue Report" files as downloaded from the courier. Each shipment is matched by tracking number, courier fees are recorded as cost, and differences show in settlements before confirmation. Shipments not in the system are recorded by brand.')}</div>
+    <div class="panel" id="qpList"></div>`;
+  async function load() {
+    const { data, error } = await sb.from('qp_invoices').select('*').order('id', { ascending: false }).limit(300);
+    if (error) return fail(error);
+    $('#qpList').innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>رقم</th><th>التاريخ</th><th class="hide-sm">الملف</th><th>الشحنات</th>
+      <th class="hide-sm">المحصّل</th><th class="hide-sm">الرسوم</th><th>الصافي</th><th>التحويل</th></tr></thead><tbody>
+      ${(data || []).map(i => `<tr class="click" data-id="${i.id}"><td class="num">${i.id}</td><td class="num">${dt(i.invoice_date)}</td>
+        <td class="hide-sm small">${esc(i.file_name || '')}</td><td class="num">${i.lines_count} <span class="muted small">(${i.matched_count} في النظام)</span></td>
+        <td class="hide-sm">${amt(i.total_amount)}</td><td class="hide-sm">${amt(i.total_fees)}</td><td>${signed(i.total_cod)}</td>
+        <td>${i.received ? `<span class="badge b-green">مستلم</span> <span class="muted small">${dt(i.received_date)}</span>` : '<span class="badge b-amber">لم يُستلم</span>'}</td></tr>`).join('')
+        || '<tr><td colspan="8" class="empty">لم تُرفع فواتير بعد</td></tr>'}</tbody></table></div>`;
+    $$('#qpList tr[data-id]').forEach(tr => tr.onclick = () => openQpInvoice(+tr.dataset.id, load));
+  }
+  await load();
+}
+
+// قراءة ملف Revenue Report
+const QP_COLS = { serial: ['serial'], status: ['order delivery status'], status_note: ['statusnote', 'status note'], notes: ['notes'],
+  full_name: ['full name'], governorate: ['governorate'], type: ['type'], total_amount: ['total amount'], total_fees: ['total fees'],
+  cod: ['cod'], order_date: ['order date'], collect_date: ['collect date'], return_date: ['return date'] };
+function qpDate(v) {
+  if (v instanceof Date) return isNaN(v) ? '' : isoDay(new Date(v.getTime() + 12 * 3600e3));
+  const s = String(v ?? '').trim(); if (!s) return '';
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  const d = new Date(s); return isNaN(d) ? '' : isoDay(d);
+}
+function readQpFile(buf) {
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  for (const name of wb.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: '' });
+    for (let h = 0; h < Math.min(rows.length, 6); h++) {
+      const map = {};
+      rows[h].forEach((cell, i) => {
+        const n = String(cell).trim().toLowerCase().replace(/\s+/g, ' ');
+        Object.entries(QP_COLS).forEach(([k, al]) => { if (!(k in map) && al.includes(n)) map[k] = i; });
+      });
+      if ('serial' in map && 'total_amount' in map) {
+        return rows.slice(h + 1).filter(r => String(r[map.serial] ?? '').trim()).map(r => {
+          const g = k => map[k] === undefined ? '' : r[map[k]];
+          return { serial: String(g('serial')).trim(), status: String(g('status')).trim(), status_note: String(g('status_note') || '').trim(),
+            notes: String(g('notes') || '').trim(), full_name: String(g('full_name') || '').trim(), governorate: String(g('governorate') || '').trim(),
+            type: String(g('type') || '').trim().toLowerCase(), total_amount: parseAmount(g('total_amount')) || 0, total_fees: parseAmount(g('total_fees')) || 0,
+            cod: parseAmount(g('cod')) || 0, order_date: qpDate(g('order_date')), collect_date: qpDate(g('collect_date')), return_date: qpDate(g('return_date')) };
+        });
+      }
+    }
+  }
+  return null;
+}
+
+function openQpUpload(done) {
+  const m = modal({ title: 'رفع فواتير شركة الشحن', wide: true, body: `<div class="grid">
+      <label class="f"><span>ملفات Revenue Report (يمكن اختيار أكثر من ملف — كل ملف يُسجَّل فاتورة مستقلة)</span>
+        <input type="file" id="qpFiles" accept=".xlsx,.xls" multiple></label><div id="qpPrev"></div></div>`,
+    footer: '<button class="btn primary" id="qpGo" disabled>رفع الفواتير</button>' });
+  let files = [];
+  $('#qpFiles', m.el).onchange = async ev => {
+    files = []; $('#qpGo', m.el).disabled = true;
+    try { await loadXLSX(); } catch (e) { return fail(e); }
+    for (const f of ev.target.files) {
+      const lines = readQpFile(await f.arrayBuffer());
+      const dates = (lines || []).map(l => l.collect_date || l.return_date).filter(Boolean).sort();
+      files.push({ name: f.name, lines, date: dates.length ? dates[dates.length - 1] : isoDay() });
+    }
+    const sum = (ls, k) => (ls || []).reduce((s, l) => s + +l[k], 0);
+    $('#qpPrev', m.el).innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>الملف</th><th>تاريخ الفاتورة</th><th>الشحنات</th><th>المحصّل</th><th>الرسوم</th><th>الصافي</th></tr></thead><tbody>
+      ${files.map((f, i) => f.lines ? `<tr><td class="small">${esc(f.name)}</td><td><input type="date" class="qpD" data-i="${i}" value="${f.date}"></td><td class="num">${f.lines.length}</td>
+        <td>${amt(sum(f.lines, 'total_amount'))}</td><td>${amt(sum(f.lines, 'total_fees'))}</td><td>${signed(sum(f.lines, 'cod'))}</td></tr>`
+        : `<tr class="row-err"><td class="small">${esc(f.name)}</td><td colspan="5">الملف ليس بصيغة Revenue Report (لم يُعثر على عمودي Serial و Total amount)</td></tr>`).join('')}</tbody></table></div>`;
+    $$('.qpD', m.el).forEach(inp => inp.onchange = () => { files[+inp.dataset.i].date = inp.value; });
+    $('#qpGo', m.el).disabled = !files.some(f => f.lines && f.lines.length);
+  };
+  $('#qpGo', m.el).onclick = e => busy(e.currentTarget, async () => {
+    const res = [];
+    for (const f of files.filter(x => x.lines && x.lines.length)) {
+      const { data, error } = await sb.rpc('qp_invoice_import', { p_file: f.name, p_date: f.date || isoDay(), p_lines: f.lines });
+      res.push({ f, data, error });
+    }
+    $('#qpPrev', m.el).innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>الملف</th><th>النتيجة</th></tr></thead><tbody>
+      ${res.map(r => `<tr><td class="small">${esc(r.f.name)}</td><td>${r.error ? `<span class="err-txt">${esc(errMsg(r.error))}</span>`
+        : r.data.ok ? `<span class="ok-txt">✓</span> ${L(`فاتورة رقم ${r.data.id}: ${r.data.lines} شحنة، منها ${r.data.matched} مسجّلة في النظام${r.data.duplicates ? ` — تم تجاهل ${r.data.duplicates} سطر مرفوع من قبل` : ''}`,
+          `Invoice ${r.data.id}: ${r.data.lines} shipments, ${r.data.matched} in the system${r.data.duplicates ? ` — ${r.data.duplicates} duplicate line(s) skipped` : ''}`)}`
+        : `<span class="err-txt">${esc(tr(r.data.msg))}</span>`}</td></tr>`).join('')}</tbody></table></div>`;
+    $('#qpGo', m.el).remove();
+    done && done();
+  });
+}
+
+async function openQpInvoice(id, reload) {
+  const [iv, ls] = await Promise.all([sb.from('qp_invoices').select('*').eq('id', id).maybeSingle(),
+    sb.from('qp_invoice_lines').select('*').eq('invoice_id', id).order('id')]);
+  if (iv.error || ls.error) return fail(iv.error || ls.error);
+  const inv = iv.data; if (!inv) return toast('الفاتورة غير موجودة', 'err');
+  const lines = ls.data || [];
+  const oids = [...new Set(lines.filter(l => l.order_id).map(l => l.order_id))];
+  const cmp = await qpCompareIds(oids);
+  const orders = {};
+  for (let i = 0; i < oids.length; i += 150) {
+    const { data } = await sb.from('orders').select('id, order_no, status, collected_amount, client_id, settlement_id').in('id', oids.slice(i, i + 150));
+    (data || []).forEach(o => { orders[o.id] = o; });
+  }
+  const diffOf = l => { const o = orders[l.order_id]; const c = cmp && cmp[l.order_id]; return o && c ? Math.round((c.qp - +o.collected_amount) * 100) / 100 : 0; };
+  const diffIds = oids.filter(oid => { const o = orders[oid], c = cmp && cmp[oid]; return o && c && ['delivered', 'returned'].includes(o.status) && Math.abs(c.qp - +o.collected_amount) >= 0.01; });
+  const brands = {};
+  lines.filter(l => !l.order_id).forEach(l => { const b = brands[l.brand || 'أخرى'] || (brands[l.brand || 'أخرى'] = { n: 0, t: 0, f: 0, c: 0 }); b.n++; b.t += +l.total_amount; b.f += +l.total_fees; b.c += +l.cod; });
+  const acc = inv.received_account_id && A.byId[inv.received_account_id];
+  const m = modal({ title: `فاتورة شركة الشحن رقم ${inv.id}`, wide: true, body: `
+    <dl class="kv small"><dt>الملف</dt><dd>${esc(inv.file_name || '')}</dd><dt>تاريخ الفاتورة</dt><dd>${dt(inv.invoice_date)}</dd>
+      <dt>رفعها</dt><dd>${esc(inv.uploaded_by_name || '')} <span class="muted">${dtt(inv.created_at)}</span></dd>
+      <dt>التحويل</dt><dd>${inv.received ? `مستلم ${dt(inv.received_date)} — ${amt(inv.received_amount)} ج في ${esc(acc ? acc.name : '')}` : 'لم يُستلم بعد'}</dd></dl>
+    <div class="stmt-totals"><div><span class="muted small">الشحنات</span><b>${inv.lines_count}</b></div>
+      <div><span class="muted small">إجمالي المحصّل</span><b>${egp(inv.total_amount)}</b></div>
+      <div><span class="muted small">رسوم شركة الشحن</span><b>${egp(inv.total_fees)}</b></div>
+      <div><span class="muted small">الصافي المستحق من شركة الشحن</span><b>${egp(inv.total_cod)}</b></div></div>
+    ${diffIds.length ? `<div class="alert">يوجد ${diffIds.length} طلب المبلغ المحصّل فيه عند شركة الشحن مختلف عن المسجّل في النظام.</div>` : ''}
+    ${Object.keys(brands).length ? `<div class="section-title">شحنات غير مسجّلة في النظام (حسب البراند)</div><div class="table-wrap"><table class="t">
+      <thead><tr><th>البراند</th><th>الشحنات</th><th>المحصّل</th><th>الرسوم</th><th>الصافي</th></tr></thead><tbody>
+      ${Object.entries(brands).sort((a, b) => b[1].n - a[1].n).map(([k, b]) => `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td>${amt(b.t)}</td><td>${amt(b.f)}</td><td>${signed(b.c)}</td></tr>`).join('')}
+      </tbody></table></div>` : ''}
+    <div class="section-title">الشحنات</div>
+    <div class="toolbar"><select id="qvF">${opt('', 'كل الشحنات')}${opt('matched', 'المسجّلة في النظام')}${opt('diff', 'فيها فرق')}${opt('out', 'غير مسجّلة في النظام')}</select>
+      <input class="grow" id="qvQ" placeholder="بحث برقم التتبع أو الاسم أو الملاحظات"><span class="muted small" id="qvN"></span></div>
+    <div class="table-wrap" style="max-height:55vh;overflow:auto"><table class="t"><thead><tr><th>رقم التتبع</th><th>الاسم</th><th class="hide-sm">الحالة</th>
+      <th>المحصّل</th><th class="hide-sm">الرسوم</th><th class="hide-sm">الصافي</th><th>الطلب</th><th>المسجّل عندنا</th><th>الفرق</th></tr></thead><tbody>
+      ${lines.map(l => { const o = orders[l.order_id]; const d = diffOf(l);
+        return `<tr class="qvRow" data-k="${l.order_id ? (d ? 'matched diff' : 'matched') : 'out'}" data-s="${esc(normAr([l.serial, l.full_name, l.notes, o ? '#' + o.order_no : ''].join(' ')))}">
+        <td class="num"><span class="ltr">${esc(l.serial)}</span></td><td class="notr">${esc(l.full_name || '')}<div class="muted small">${esc(l.notes || '')}</div></td>
+        <td class="hide-sm small">${esc(l.delivery_status || '')} ${l.type === 'return' ? '<span class="badge b-red">return</span>' : ''}</td>
+        <td>${amt(l.total_amount)}</td><td class="hide-sm">${amt(l.total_fees)}</td><td class="hide-sm">${signed(l.cod)}</td>
+        <td>${o ? `<a href="#" class="olink" data-oid="${o.id}">#${o.order_no}</a>` : `<span class="muted small">${esc(l.brand || '')}</span>`}</td>
+        <td>${o ? amt(o.collected_amount) : ''}</td><td>${o ? (d ? signed(d) : '<span class="ok-txt">✓</span>') : ''}</td></tr>`; }).join('')}</tbody></table></div>`,
+    footer: `${accE() && !inv.received ? '<button class="btn primary" id="qvRcv">تسجيل استلام التحويل</button>' : ''}
+      ${accE() && inv.received ? '<button class="btn" id="qvUnrcv">إلغاء الاستلام</button>' : ''}
+      ${diffIds.length && can('orders_finance') ? `<button class="btn" id="qvAdopt">اعتماد مبالغ شركة الشحن (${diffIds.length})</button>` : ''}
+      ${accE() ? '<button class="btn" id="qvRem">إعادة المطابقة</button>' : ''}<span class="spacer"></span>
+      ${accE() ? '<button class="btn danger" id="qvDel">حذف الفاتورة</button>' : ''}` });
+  const filt = () => {
+    const k = $('#qvF', m.el).value, t = normAr($('#qvQ', m.el).value); let n = 0;
+    $$('.qvRow', m.el).forEach(r => { const ok = (!k || r.dataset.k.split(' ').includes(k)) && (!t || r.dataset.s.includes(t)); r.style.display = ok ? '' : 'none'; if (ok) n++; });
+    $('#qvN', m.el).textContent = (k || t) ? `${n} نتيجة` : '';
+  };
+  $('#qvF', m.el).onchange = filt; $('#qvQ', m.el).oninput = filt;
+  const refresh = () => { m.close(); reload && reload(); openQpInvoice(id, reload); };
+  $$('.olink', m.el).forEach(a => a.onclick = async ev => {
+    ev.preventDefault();
+    const { data: o } = await sb.from('orders').select('*').eq('id', a.dataset.oid).maybeSingle();
+    if (o) openOrder(o, refresh);
+  });
+  if ($('#qvRcv', m.el)) $('#qvRcv', m.el).onclick = () => {
+    const pm = modal({ title: 'تسجيل استلام تحويل شركة الشحن', body: `<form id="rcF" class="grid g2">
+        <label class="f"><span>استُلم في *</span><select name="acc" required>${accOptions(A.key.bank_main ? A.key.bank_main.id : '', cashFilter)}</select></label>
+        <label class="f"><span>المبلغ المستلم *</span><input type="number" step="0.01" name="amount" required dir="ltr" value="${+inv.total_cod}"></label>
+        <label class="f"><span>تاريخ الاستلام *</span><input type="date" name="date" required value="${isoDay()}"></label>
+        <label class="f"><span>ملاحظات</span><input name="notes"></label>
+        <p class="hint span-all">الصافي المستحق حسب الفاتورة: ${egp(inv.total_cod)}. لو المبلغ المستلم مختلف، يظل الفرق في حساب «مستحقات لدى شركة الشحن».</p></form>`,
+      footer: '<button class="btn primary" id="rcOk">تأكيد</button>' });
+    $('#rcOk', pm.el).onclick = e => {
+      const form = $('#rcF', pm.el); if (!form.reportValidity()) return;
+      const f = formValues(form);
+      busy(e.currentTarget, async () => {
+        const { error } = await sb.rpc('qp_invoice_receive', { p_id: inv.id, p_account: +f.acc, p_amount: num(f.amount), p_date: f.date, p_notes: nz(f.notes) });
+        if (error) return fail(error);
+        toast('تم تسجيل الاستلام', 'ok'); pm.close(); refresh();
+      });
+    };
+  };
+  if ($('#qvUnrcv', m.el)) $('#qvUnrcv', m.el).onclick = async () => {
+    if (!await confirmBox('إلغاء تسجيل استلام التحويل وحذف قيده؟', 'إلغاء الاستلام', true)) return;
+    const { error } = await sb.rpc('qp_invoice_unreceive', { p_id: inv.id });
+    if (error) return fail(error);
+    refresh();
+  };
+  if ($('#qvAdopt', m.el)) $('#qvAdopt', m.el).onclick = e => busy(e.currentTarget, async () => {
+    if (!await confirmBox(`سيتم تعديل المبلغ المحصّل في ${diffIds.length} طلب ليطابق ما حصّلته شركة الشحن، وتُحدَّث التسويات والقيود تلقائيًا. متابعة؟`, 'اعتماد')) return;
+    const { data, error } = await sb.rpc('qp_adopt_amount', { p_order_ids: diffIds });
+    if (error) return fail(error);
+    toast(L(`تم تعديل ${data} طلب`, `${data} order(s) updated`), 'ok'); refresh();
+  });
+  if ($('#qvRem', m.el)) $('#qvRem', m.el).onclick = e => busy(e.currentTarget, async () => {
+    const { data, error } = await sb.rpc('qp_invoice_rematch', { p_id: inv.id });
+    if (error) return fail(error);
+    toast(L(`تمت مطابقة ${data} شحنة جديدة`, `${data} new shipment(s) matched`), 'ok'); refresh();
+  });
+  if ($('#qvDel', m.el)) $('#qvDel', m.el).onclick = async () => {
+    if (!await confirmBox('حذف الفاتورة وكل قيودها؟ (لا يؤثر على الطلبات)', 'حذف', true)) return;
+    const { error } = await sb.rpc('qp_invoice_delete', { p_id: inv.id });
+    if (error) return fail(error);
+    toast('تم الحذف', 'ok'); m.close(); reload && reload();
+  };
+}
+
+// ---------------- مقارنة شركة الشحن داخل التسوية ----------------
+async function qpCompareIds(ids) {
+  if (!S.isAdmin || !ids.length) return null;
+  const map = {};
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data, error } = await sb.from('qp_invoice_lines').select('order_id, total_amount, total_fees').in('order_id', ids.slice(i, i + 150));
+    if (error) return null;
+    (data || []).forEach(l => { const x = map[l.order_id] || (map[l.order_id] = { qp: 0, fees: 0, n: 0 }); x.qp += +l.total_amount; x.fees += +l.total_fees; x.n++; });
+  }
+  return map;
+}
+const qpDiff = (o, cmp) => { const c = cmp && cmp[o.id]; return c ? Math.round((c.qp - +o.collected_amount) * 100) / 100 : null; };
+const qpCell = (o, cmp) => {
+  if (!cmp) return '';
+  const d = qpDiff(o, cmp);
+  return `<td class="qpcol">${d === null ? '<span class="muted small" title="لم تظهر في فواتير شركة الشحن المرفوعة بعد">—</span>'
+    : d ? `${amt(cmp[o.id].qp)} <span class="small">(${signed(d)})</span>` : `<span class="ok-txt" title="مطابق">✓</span>`}</td>`;
+};
+const qpHead = cmp => cmp ? '<th class="qpcol" title="المحصّل حسب فواتير شركة الشحن">شركة الشحن</th>' : '';
+function qpBlock(orders, cmp) {
+  if (!cmp) return { html: '', diffIds: [] };
+  let ok = 0, miss = 0, sum = 0; const diffIds = [];
+  orders.forEach(o => { const d = qpDiff(o, cmp); if (d === null) miss++; else if (d) { diffIds.push(o.id); sum += d; } else ok++; });
+  const cls = diffIds.length ? 'alert' : miss ? 'alert info' : 'alert ok';
+  return { diffIds, html: `<div class="${cls} small qp-block"><b>مقارنة مع فواتير شركة الشحن:</b>
+    ${ok} مطابق، ${diffIds.length ? `<b>${diffIds.length} فيه فرق (إجمالي ${money(sum)} ج)</b>، ` : ''}${miss} لم يظهر في الفواتير المرفوعة بعد.
+    ${diffIds.length && can('orders_finance') ? '<button class="btn sm" id="qpAdoptBtn" style="margin-inline-start:8px">اعتماد مبالغ شركة الشحن</button>' : ''}</div>` };
 }
 
 // =====================================================================
