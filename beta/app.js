@@ -1393,6 +1393,7 @@ async function rematchSerials(serials) {
 }
 
 function openImport(preset) {
+  if (!preset || !Array.isArray(preset.rows)) preset = null;   // الزرار بيبعت event
   const A = S.isAdmin;
   const m = modal({ title: preset ? preset.title : 'رفع طلبات من ملف Excel', wide: true, body: `
     <div class="import-steps">
