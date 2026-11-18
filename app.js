@@ -89,7 +89,7 @@ const DICT = {
   'بحث: الاسم، الهاتف، رقم الطلب، رقم التتبع': 'Search: name, phone, order no., tracking no.', 'رقم': 'No.', 'المستلم': 'Recipient',
   'التحصيل': 'COD', 'الحالة': 'Status', 'رقم التتبع': 'Tracking no.', 'التاريخ': 'Date', 'لا توجد طلبات بعد': 'No orders yet',
   'لا توجد طلبات مطابقة للبحث': 'No orders match your search', 'إرسال إلى QP': 'Send to QP', 'تغيير الحالة إلى:': 'Change status to:',
-  'إلغاء التحديد': 'Clear selection', 'طلب جديد': 'New order', 'اسم المستلم *': 'Recipient name *', 'رقم الطلب لديك': 'Your order no.',
+  'إلغاء التحديد': 'Clear selection', 'طلب جديد': 'New order', 'اسم المستلم *': 'Recipient name *', 'رقم الطلب لديك': 'Your order no.', 'البراند (اختياري)': 'Brand (optional)', 'رقم طلب البراند': 'Brand order no.', 'ملخص حسب البراند': 'Summary by brand',
   'رقم الهاتف *': 'Phone *', 'رقم هاتف آخر': 'Other phone', 'المحافظة *': 'Governorate *', 'المنطقة / المدينة': 'Area / city',
   'العنوان بالتفصيل *': 'Full address *', 'المحتوى': 'Contents', 'عدد القطع': 'Pieces', 'المطلوب تحصيله *': 'Amount to collect *',
   'ملاحظات': 'Notes', 'متاح معاينة الشحنة': 'Allow shipment inspection',
@@ -673,7 +673,7 @@ function ordersQuery(select = '*', withCount = true) {
   if (OF.client) q = q.eq('client_id', OF.client);
   const t = OF.q.replace(/[,()*%"\\]/g, ' ').trim();
   if (t) {
-    const parts = ['customer_name', 'customer_phone', 'qp_tracking', 'client_ref'].map(c => `${c}.ilike."*${t}*"`);
+    const parts = ['customer_name', 'customer_phone', 'qp_tracking', 'client_ref', 'brand'].map(c => `${c}.ilike."*${t}*"`);
     const n = t.replace(/^#/, '');
     if (/^\d+$/.test(n) && n.length < 10) parts.push(`order_no.eq.${n}`);
     q = q.or(parts.join(','));
@@ -722,7 +722,7 @@ async function loadOrders() {
     <th class="hide-sm">رقم التتبع</th><th class="hide-sm">التاريخ</th></tr></thead><tbody>
     ${rows.map(o => `<tr class="click ${selected.has(o.id) ? 'selected' : ''}" data-id="${o.id}">
       ${SEL ? `<td><input type="checkbox" class="sel" ${selected.has(o.id) ? 'checked' : ''}></td>` : ''}
-      <td class="num"><b>${orderNo(o)}</b>${o.client_ref ? `<div class="muted small">${esc(o.client_ref)}</div>` : ''}</td>
+      <td class="num"><b>${orderNo(o)}</b>${o.brand || o.client_ref ? `<div class="muted small">${esc([o.brand, o.client_ref].filter(Boolean).join(' · '))}</div>` : ''}</td>
       ${A ? `<td class="hide-sm">${esc(clientName(o.client_id))}</td>` : ''}
       <td>${esc(o.customer_name)}<div class="muted small"><span class="ltr">${esc(o.customer_phone)}</span></div></td>
       <td class="hide-sm">${esc(o.governorate)}<div class="muted small">${esc(o.city || '')}</div></td>
@@ -891,7 +891,7 @@ async function openQpSettings() {
 async function exportOrders() {
   const { data, error } = await ordersQuery('*', false).range(0, 9999);
   if (error) return fail(error);
-  const cols = [['order_no', 'رقم الطلب'], ['client', 'العميل'], ['client_ref', 'مرجع العميل'], ['customer_name', 'المستلم'],
+  const cols = [['order_no', 'رقم الطلب'], ['client', 'العميل'], ['brand', 'البراند'], ['client_ref', 'مرجع العميل'], ['customer_name', 'المستلم'],
     ['customer_phone', 'الهاتف'], ['customer_phone2', 'هاتف آخر'], ['governorate', 'المحافظة'], ['city', 'المنطقة'],
     ['address', 'العنوان'], ['items', 'المحتوى'], ['pieces', 'القطع'], ['cod_amount', 'التحصيل'], ['allow_open', 'متاح المعاينة'],
     ['notes', 'ملاحظات'], ['status', 'الحالة'], ['qp_tracking', 'رقم التتبع'], ['collected_amount', 'المحصّل'],
@@ -908,7 +908,7 @@ async function exportOrders() {
 
 // ---------- سجل الطلب ----------
 const FIELD_LABELS = {
-  client_id: ['العميل', 'Client'], client_ref: ['رقم الطلب لدى العميل', 'Client ref'], customer_name: ['اسم المستلم', 'Recipient'],
+  client_id: ['العميل', 'Client'], client_ref: ['رقم الطلب لدى العميل', 'Client ref'], brand: ['البراند', 'Brand'], customer_name: ['اسم المستلم', 'Recipient'],
   customer_phone: ['الهاتف', 'Phone'], customer_phone2: ['هاتف آخر', 'Other phone'], governorate: ['المحافظة', 'Governorate'],
   city: ['المنطقة', 'Area'], address: ['العنوان', 'Address'], items: ['المحتوى', 'Contents'], pieces: ['عدد القطع', 'Pieces'],
   cod_amount: ['المطلوب تحصيله', 'COD amount'], allow_open: ['المعاينة', 'Inspection'], notes: ['الملاحظات', 'Notes'],
@@ -966,6 +966,7 @@ async function openOrder(o, onDone) {
       ${opt('', '— اختر العميل —', o.client_id)}${S.clients.filter(c => c.active || c.id === o.client_id).map(c => opt(c.id, c.name, o.client_id)).join('')}</select></label>` : ''}
     <label class="f"><span>اسم المستلم *</span><input name="customer_name" required value="${esc(o.customer_name)}" ${dis}></label>
     <label class="f"><span>رقم الطلب لديك</span><input name="client_ref" value="${esc(o.client_ref)}" ${dis}></label>
+    <label class="f"><span>البراند (اختياري)</span><input name="brand" value="${esc(o.brand)}" ${dis}></label>
     <label class="f"><span>رقم الهاتف *</span><input name="customer_phone" required inputmode="tel" dir="ltr" value="${esc(o.customer_phone)}" ${dis}></label>
     <label class="f"><span>رقم هاتف آخر</span><input name="customer_phone2" inputmode="tel" dir="ltr" value="${esc(o.customer_phone2)}" ${dis}></label>
     <label class="f"><span>المحافظة *</span><select name="governorate" required ${dis}>${govOptions(o.governorate)}</select></label>
@@ -1037,7 +1038,7 @@ async function openOrder(o, onDone) {
       const phone = f.customer_phone.replace(/\s|-/g, '');
       if (!/^\+?\d{10,13}$/.test(phone)) return toast('رقم الهاتف غير صحيح', 'err');
       Object.assign(rec, {
-        client_ref: nz(f.client_ref), customer_name: f.customer_name, customer_phone: phone,
+        client_ref: nz(f.client_ref), brand: nz(f.brand), customer_name: f.customer_name, customer_phone: phone,
         customer_phone2: nz(f.customer_phone2.replace(/\s|-/g, '')), governorate: f.governorate, city: nz(f.city),
         address: f.address, items: nz(f.items), pieces: parseInt(f.pieces) || 1, cod_amount: num(f.cod_amount),
         allow_open: f.allow_open, notes: nz(f.notes),
@@ -1228,6 +1229,7 @@ const IMPORT_COLS = [
   { key: 'pieces', label: 'عدد القطع', alias: ['عدد القطع', 'الكمية', 'القطع', 'عدد', 'pieces', 'quantity', 'qty'] },
   { key: 'cod_amount', label: 'المبلغ المطلوب تحصيله', req: true, alias: ['المبلغ المطلوب تحصيله', 'المطلوب تحصيله', 'المبلغ', 'مبلغ التحصيل', 'التحصيل', 'الاجمالي', 'السعر', 'total amount', 'cod amount', 'amount', 'total', 'price'] },
   { key: 'qp_tracking', label: 'سيريال شركة الشحن', alias: ['سيريال شركة الشحن', 'سيريال الشحن', 'السيريال', 'سيريال', 'رقم التتبع', 'رقم البوليصة', 'البوليصة', 'serial', 'tracking', 'tracking number', 'tracking no', 'awb'] },
+  { key: 'brand', label: 'البراند', alias: ['البراند', 'براند', 'اسم البراند', 'الماركه', 'الماركة', 'المتجر', 'brand', 'brand name', 'store', 'shop'] },
   { key: 'client_ref', label: 'رقم الطلب لديك', alias:['رقم الطلب لديك', 'رقم الطلب', 'رقم الاوردر', 'مرجع', 'reference id', 'reference', 'order id', 'order number', 'order no'] },
   { key: 'notes', label: 'ملاحظات', alias: ['ملاحظات', 'ملاحظه', 'notes', 'note', 'comments', 'comment'] },
   { key: 'allow_open', label: 'متاح المعاينة', alias: ['متاح المعاينة', 'المعاينة', 'معاينة', 'يسمح بالمعاينة', 'مسموح بالمعاينة', 'يسمح بالفتح', 'مسموح بالفتح', 'فتح الشحنه', 'السماح بالفتح', 'allow open', 'open package'] },
@@ -1317,6 +1319,7 @@ function buildImportRows(sheet) {
       cod_amount: parseAmount(get(r, 'cod_amount')),
       qp_tracking: can('orders_edit') ? toLatinDigits(get(r, 'qp_tracking')).replace(/\s+/g, '') || null : null,
       client_ref: get(r, 'client_ref') || null,
+      brand: get(r, 'brand') || null,
       notes: get(r, 'notes') || null,
       allow_open: parseOpen(get(r, 'allow_open')),
     };
@@ -1426,7 +1429,7 @@ function openImport(preset) {
       <div class="table-wrap" style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:8px">
       <table class="t"><thead><tr><th>#</th><th>المستلم</th><th>الهاتف</th><th>المحافظة</th><th class="hide-sm">العنوان</th><th>المبلغ</th><th class="hide-sm">${L('السيريال', 'Serial')}</th><th>الحالة</th></tr></thead><tbody>
       ${rows.map((r, i) => `<tr class="${r.errors.length ? 'row-err' : ''}">
-        <td class="num muted">${r.line}</td><td>${esc(r.customer_name)}</td><td><span class="ltr">${esc(r.customer_phone)}</span></td>
+        <td class="num muted">${r.line}</td><td>${esc(r.customer_name)}${r.brand || r.client_ref ? `<div class="muted small">${esc([r.brand, r.client_ref].filter(Boolean).join(' · '))}</div>` : ''}</td><td><span class="ltr">${esc(r.customer_phone)}</span></td>
         <td>${r.governorate && !r.govFixed ? esc(r.governorate)
           : `<select class="impGov" data-i="${i}" style="min-width:120px">${govOptions(r.governorate)}</select>${r.govRaw ? `<div class="muted small">في الملف: ${esc(r.govRaw)}</div>` : ''}`}</td>
         <td class="hide-sm small">${esc(r.address).slice(0, 60)}</td><td class="num">${r.cod_amount ?? ''}</td>
@@ -1471,7 +1474,7 @@ function openImport(preset) {
         const chunk = ok.slice(i, i + 100).map(r => ({
           client_id: clientId, customer_name: r.customer_name, customer_phone: r.customer_phone, customer_phone2: r.customer_phone2,
           governorate: r.governorate, city: r.city, address: r.address, items: r.items, pieces: r.pieces,
-          cod_amount: r.cod_amount, client_ref: r.client_ref, notes: r.notes, allow_open: r.allow_open,
+          cod_amount: r.cod_amount, client_ref: r.client_ref, brand: r.brand || null, notes: r.notes, allow_open: r.allow_open,
           ...(!r.qp_tracking ? {} : r.inv ? { qp_tracking: r.qp_tracking, status: r.inv.status, collected_amount: r.inv.collected,
             closed_at: `${r.inv.date}T12:00:00+02:00`, shipped_at: `${r.inv.date}T12:00:00+02:00` }
             : { qp_tracking: r.qp_tracking, status: 'shipped' }) }));
@@ -1676,7 +1679,7 @@ async function viewSettlements() {
     let ids = null;
     $('#sHits').innerHTML = '';
     if (t) {
-      const parts = ['qp_tracking', 'customer_name', 'customer_phone', 'client_ref'].map(c => `${c}.ilike."*${t}*"`);
+      const parts = ['qp_tracking', 'customer_name', 'customer_phone', 'client_ref', 'brand'].map(c => `${c}.ilike."*${t}*"`);
       const n = t.replace(/^#/, '');
       if (/^\d+$/.test(n) && n.length < 10) parts.push(`order_no.eq.${n}`);
       const { data: hits, error: he } = await sb.from('orders').select('id, order_no, customer_name, qp_tracking, status, settlement_id')
@@ -1722,7 +1725,7 @@ const feeRow = o => `<td class="num">${money(o.collected_amount)}</td>
 const feeHead = '<th>المحصّل</th><th>الشحن</th><th>المرتجع</th><th>التجهيز</th><th>التكلفة</th><th>الصافي</th>';
 const trackCell = o => `<td class="num small">${o.qp_tracking ? `<span class="ltr">${esc(o.qp_tracking)}</span>` : '<span class="muted">—</span>'}</td>`;
 // نص البحث داخل جدول التسوية
-const orderSearchText = o => normAr([o.order_no, '#' + o.order_no, o.qp_tracking, o.customer_name, o.customer_phone, o.client_ref].join(' '));
+const orderSearchText = o => normAr([o.order_no, '#' + o.order_no, o.qp_tracking, o.customer_name, o.customer_phone, o.client_ref, o.brand].join(' '));
 
 // فلترة صفوف جدول حسب مربع البحث
 function bindRowFilter(input, rowsSel, countEl) {
@@ -1845,10 +1848,23 @@ async function openSettlement(s, reload, q = '') {
       <div><span class="muted small">إجمالي المحصّل</span><b>${egp(s.total_collected)}</b></div>
       <div><span class="muted small">إجمالي التكلفة</span><b>${egp(s.total_fees)}</b></div>
       <div><span class="muted small">الصافي للعميل</span><b>${egp(s.net_amount)}</b></div></div>`;
-  const table = `<table class="t"><thead><tr><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}${qpHead(cmp)}</tr></thead>
-    <tbody>${(orders || []).map(o => `<tr class="stRow" data-s="${esc(orderSearchText(o))}"><td class="num"><a href="#" class="olink" data-oid="${o.id}">${orderNo(o)}</a>${o.client_ref ? ` <span class="muted small">(${esc(o.client_ref)})</span>` : ''}</td>
-      ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}${qpCell(o, cmp)}</tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="5">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td>${cmp ? '<td class="qpcol"></td>' : ''}</tr></tfoot></table>
+  // البراند ورقم طلب البراند (للعملاء اللي تحتهم براندات زي Printive)
+  const BR = (orders || []).some(o => o.brand);
+  const brandHead = BR ? '<th>البراند</th><th>رقم طلب البراند</th>' : '';
+  const brandCells = o => BR ? `<td>${esc(o.brand || '—')}</td><td class="num">${esc(o.client_ref || '')}</td>` : '';
+  const brandSum = (() => {
+    if (!BR) return '';
+    const g = {};
+    (orders || []).forEach(o => { const k = o.brand || '—'; const x = g[k] || (g[k] = { n: 0, c: 0, f: 0, net: 0 });
+      x.n++; x.c += +o.collected_amount; x.f += orderCost(o); x.net += +o.net_amount; });
+    return `<div class="section-title">ملخص حسب البراند</div><table class="t"><thead><tr><th>البراند</th><th>الطلبات</th><th>المحصّل</th><th>التكلفة</th><th>الصافي</th></tr></thead><tbody>
+      ${Object.entries(g).sort((a, b) => b[1].n - a[1].n).map(([k, x]) => `<tr><td>${esc(k)}</td><td class="num">${x.n}</td><td class="num">${money(x.c)}</td><td class="num">${money(x.f)}</td><td>${signed(x.net)}</td></tr>`).join('')}
+      </tbody></table><div class="section-title">الطلبات</div>`;
+  })();
+  const table = `${brandSum}<table class="t"><thead><tr><th>رقم</th>${brandHead}<th>رقم التتبع</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}${qpHead(cmp)}</tr></thead>
+    <tbody>${(orders || []).map(o => `<tr class="stRow" data-s="${esc(orderSearchText(o))}"><td class="num"><a href="#" class="olink" data-oid="${o.id}">${orderNo(o)}</a>${o.client_ref && !BR ? ` <span class="muted small">(${esc(o.client_ref)})</span>` : ''}</td>
+      ${brandCells(o)}${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}${qpCell(o, cmp)}</tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="${BR ? 7 : 5}">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td>${cmp ? '<td class="qpcol"></td>' : ''}</tr></tfoot></table>
     ${s.notes ? `<p class="small"><b>ملاحظات:</b> ${esc(s.notes)}</p>` : ''}`;
   const E = S.isAdmin && can('settlements_edit');
   const m = modal({ title: `تسوية رقم ${s.settlement_no}`, wide: true,
@@ -2441,6 +2457,8 @@ async function accQp() {
   await load();
 }
 
+// رقم طلب البراند من ملاحظات الشحنة: «Caseq #1234» أو «Caseq - 1234»
+const brandRef = notes => { const m = String(notes || '').match(/^\s*\|?\s*[A-Za-z][A-Za-z0-9 ]{0,20}?\s*[-.#|]\s*#?\s*(\d[\w-]{0,19})/); return m ? m[1] : null; };
 // قراءة ملف Revenue Report
 const QP_COLS = { serial: ['serial'], status: ['order delivery status'], status_note: ['statusnote', 'status note'], notes: ['notes'],
   full_name: ['full name'], governorate: ['governorate'], type: ['type'], total_amount: ['total amount'], total_fees: ['total fees'],
@@ -2571,14 +2589,15 @@ async function openQpInvoice(id, reload) {
   };
   $('#qvF', m.el).onchange = filt; $('#qvQ', m.el).oninput = filt;
   const refresh = () => { m.close(); reload && reload(); openQpInvoice(id, reload); };
-  // تسجيل الشحنات غير المسجّلة كطلبات (من بيانات الفاتورة: الاسم، المحافظة، المبلغ، السيريال)
+  // تسجيل الشحنات غير المسجّلة كطلبات (من بيانات الفاتورة: الاسم، المحافظة، المبلغ، السيريال، البراند ورقم طلبه)
   const regOpen = brand => {
     const sel = lines.filter(l => !l.order_id && (brand === null || (l.brand || 'أخرى') === brand));
     const seen = new Set();
     const rows = sel.filter(l => !seen.has(l.serial) && seen.add(l.serial)).map((l, i) => ({
       line: i + 1, customer_name: l.full_name || '', customer_phone: '', customer_phone2: null,
       govRaw: l.governorate || '', governorate: matchGov(l.governorate || ''), city: null, address: '', items: null, pieces: 1,
-      cod_amount: +l.total_amount || 0, qp_tracking: String(l.serial), client_ref: null, notes: null, allow_open: true }));
+      cod_amount: +l.total_amount || 0, qp_tracking: String(l.serial), allow_open: true, notes: null,
+      brand: l.brand && !['أخرى', 'Operative'].includes(l.brand) ? l.brand : null, client_ref: brandRef(l.notes) }));
     const b = brand === null ? '' : brand;
     openImport({ rows, title: L(`تسجيل شحنات غير مسجّلة كطلبات${b ? ` — ${b}` : ''}`, `Register unregistered shipments as orders${b ? ` — ${b}` : ''}`),
       fileName: `qp-invoice-${inv.id}${b ? '-' + b.replace(/[^\w\u0600-\u06FF-]+/g, '_') : ''}.xlsx`, done: refresh });
