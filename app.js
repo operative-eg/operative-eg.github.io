@@ -1433,7 +1433,7 @@ function openImport(preset) {
         <td>${r.governorate && !r.govFixed ? esc(r.governorate)
           : `<select class="impGov" data-i="${i}" style="min-width:120px">${govOptions(r.governorate)}</select>${r.govRaw ? `<div class="muted small">في الملف: ${esc(r.govRaw)}</div>` : ''}`}</td>
         <td class="hide-sm small">${esc(r.address).slice(0, 60)}</td><td class="num">${r.cod_amount ?? ''}</td>
-        <td class="hide-sm small"><span class="ltr">${esc(r.qp_tracking || '')}</span>${r.inv ? `<div>${badge(r.inv.status)} <span class="muted">${L(`فاتورة ${r.inv.invoice}`, `Invoice ${r.inv.invoice}`)}</span></div>` : ''}</td>
+        <td class="hide-sm small"><span class="ltr">${esc(r.qp_tracking || '')}</span>${r.inv ? `<div>${badge(r.inv.status)} <span class="muted">${L(`فاتورة ${r.inv.invoice}`, `Invoice ${r.inv.invoice}`)}</span></div>` : ''}${r.qpNote ? `<div class="muted notr">${esc(r.qpNote)}</div>` : ''}</td>
         <td>${r.errors.length ? `<span class="neg small">${r.errors.join('، ')}</span>` : '<span class="pos">✓</span>'}</td></tr>`).join('')}
       </tbody></table></div>`;
     $$('.impGov', m.el).forEach(sel => sel.onchange = () => {
@@ -2457,11 +2457,15 @@ async function accQp() {
   await load();
 }
 
+// خانة الهاتف في تقرير شركة الشحن ممكن يكون فيها رقمين لازقين في بعض
+const splitPhones = v => { const d = toLatinDigits(v).replace(/[^\d+]/g, ' ');
+  const m = d.replace(/\s+/g, '').match(/(?:\+?20|0)?1[0125]\d{8}/g) || [];
+  const out = [...new Set(m.map(normPhone))]; return out.length ? out : [normPhone(v)].filter(Boolean); };
 // رقم طلب البراند من ملاحظات الشحنة: «Caseq #1234» أو «Caseq - 1234»
-const brandRef = notes => { const m = String(notes || '').match(/^\s*\|?\s*[A-Za-z][A-Za-z0-9 ]{0,20}?\s*[-.#|]\s*#?\s*(\d[\w-]{0,19})/); return m ? m[1] : null; };
+const brandRef = notes => { const m = String(notes || '').match(/^\s*[A-Za-z][A-Za-z0-9 ]{0,20}?\s*[-.#]\s*#?\s*([A-Za-z]{0,4}\d[\w-]{0,19})/); return m ? m[1] : null; };
 // قراءة ملف Revenue Report
 const QP_COLS = { serial: ['serial'], status: ['order delivery status'], status_note: ['statusnote', 'status note'], notes: ['notes'],
-  full_name: ['full name'], governorate: ['governorate'], type: ['type'], total_amount: ['total amount'], total_fees: ['total fees'],
+  full_name: ['full name'], phone: ['phone'], address: ['address'], governorate: ['governorate'], type: ['type'], total_amount: ['total amount'], total_fees: ['total fees'],
   cod: ['cod'], order_date: ['order date'], collect_date: ['collect date'], return_date: ['return date'] };
 function qpDate(v) {
   if (v instanceof Date) return isNaN(v) ? '' : isoDay(new Date(v.getTime() + 12 * 3600e3));
@@ -2484,6 +2488,7 @@ function readQpFile(buf) {
           const g = k => map[k] === undefined ? '' : r[map[k]];
           return { serial: String(g('serial')).trim(), status: String(g('status')).trim(), status_note: String(g('status_note') || '').trim(),
             notes: String(g('notes') || '').trim(), full_name: String(g('full_name') || '').trim(), governorate: String(g('governorate') || '').trim(),
+            phone: toLatinDigits(g('phone')).trim(), address: String(g('address') || '').replace(/\s+/g, ' ').trim(),
             type: String(g('type') || '').trim().toLowerCase(), total_amount: parseAmount(g('total_amount')) || 0, total_fees: parseAmount(g('total_fees')) || 0,
             cod: parseAmount(g('cod')) || 0, order_date: qpDate(g('order_date')), collect_date: qpDate(g('collect_date')), return_date: qpDate(g('return_date')) };
         });
@@ -2594,8 +2599,9 @@ async function openQpInvoice(id, reload) {
     const sel = lines.filter(l => !l.order_id && (brand === null || (l.brand || 'أخرى') === brand));
     const seen = new Set();
     const rows = sel.filter(l => !seen.has(l.serial) && seen.add(l.serial)).map((l, i) => ({
-      line: i + 1, customer_name: l.full_name || '', customer_phone: '', customer_phone2: null,
-      govRaw: l.governorate || '', governorate: matchGov(l.governorate || ''), city: null, address: '', items: null, pieces: 1,
+      line: i + 1, customer_name: l.full_name || '', customer_phone: splitPhones(l.phone)[0] || '', customer_phone2: splitPhones(l.phone)[1] || null,
+      govRaw: l.governorate || '', governorate: matchGov(l.governorate || ''), city: null, address: l.address || '', items: null, pieces: 1,
+      qpNote: [l.type === 'return' ? 'return' : '', l.status_note || ''].filter(Boolean).join(' — '),
       cod_amount: +l.total_amount || 0, qp_tracking: String(l.serial), allow_open: true, notes: null,
       brand: l.brand && !['أخرى', 'Operative'].includes(l.brand) ? l.brand : null, client_ref: brandRef(l.notes) }));
     const b = brand === null ? '' : brand;
