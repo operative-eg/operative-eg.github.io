@@ -1227,7 +1227,8 @@ const IMPORT_COLS = [
   { key: 'items', label: 'المحتوى', alias: ['المحتوى', 'محتوى الشحنة', 'المنتج', 'المنتجات', 'الصنف', 'shipment contents', 'contents', 'items', 'product', 'products', 'description'] },
   { key: 'pieces', label: 'عدد القطع', alias: ['عدد القطع', 'الكمية', 'القطع', 'عدد', 'pieces', 'quantity', 'qty'] },
   { key: 'cod_amount', label: 'المبلغ المطلوب تحصيله', req: true, alias: ['المبلغ المطلوب تحصيله', 'المطلوب تحصيله', 'المبلغ', 'مبلغ التحصيل', 'التحصيل', 'الاجمالي', 'السعر', 'total amount', 'cod amount', 'amount', 'total', 'price'] },
-  { key: 'client_ref', label: 'رقم الطلب لديك', alias: ['رقم الطلب لديك', 'رقم الطلب', 'رقم الاوردر', 'مرجع', 'reference id', 'reference', 'order id', 'order number', 'order no'] },
+  { key: 'qp_tracking', label: 'سيريال شركة الشحن', alias: ['سيريال شركة الشحن', 'سيريال الشحن', 'السيريال', 'سيريال', 'رقم التتبع', 'رقم البوليصة', 'البوليصة', 'serial', 'tracking', 'tracking number', 'tracking no', 'awb'] },
+  { key: 'client_ref', label: 'رقم الطلب لديك', alias:['رقم الطلب لديك', 'رقم الطلب', 'رقم الاوردر', 'مرجع', 'reference id', 'reference', 'order id', 'order number', 'order no'] },
   { key: 'notes', label: 'ملاحظات', alias: ['ملاحظات', 'ملاحظه', 'notes', 'note', 'comments', 'comment'] },
   { key: 'allow_open', label: 'متاح المعاينة', alias: ['متاح المعاينة', 'المعاينة', 'معاينة', 'يسمح بالمعاينة', 'مسموح بالمعاينة', 'يسمح بالفتح', 'مسموح بالفتح', 'فتح الشحنه', 'السماح بالفتح', 'allow open', 'open package'] },
 ];
@@ -1261,18 +1262,24 @@ const parseYes = v => /^(نعم|ايوه|اه|yes|y|true|1|مسموح|يسمح)$
 // المعاينة متاحة افتراضيًا، ولا تُغلق إلا بقيمة صريحة مثل «لا»
 const parseOpen = v => !/^(لا|لأ|no|n|false|0|ممنوع|غير مسموح|غير متاح|بدون|بدون معاينه|لا يسمح)$/.test(normAr(v));
 
-function downloadTemplate() {
-  const head = IMPORT_COLS.map(c => c.label);
-  const ex = ['محمد أحمد', '01012345678', '', 'القاهرة', 'مدينة نصر', '10 شارع عباس العقاد، الدور الثالث', 'سلسلة فضة', 1, 450, '1001', 'الاتصال قبل التوصيل', 'نعم'];
-  const ws = XLSX.utils.aoa_to_sheet([head, ex]);
-  ws['!cols'] = head.map((h, i) => ({ wch: i === 5 ? 40 : Math.max(14, h.length + 4) }));
+// عمود السيريال للشركة بس (قاعدة البيانات بتشيل رقم التتبع من طلبات العميل)
+const importCols = () => IMPORT_COLS.filter(c => c.key !== 'qp_tracking' || can('orders_edit'));
+function downloadTemplate(preset, fileName) {
+  const cols = importCols();
+  const head = cols.map(c => c.label);
+  const ex = { customer_name: 'محمد أحمد', customer_phone: '01012345678', governorate: 'القاهرة', city: 'مدينة نصر',
+    address: '10 شارع عباس العقاد، الدور الثالث', items: 'سلسلة فضة', pieces: 1, cod_amount: 450, client_ref: '1001', notes: 'الاتصال قبل التوصيل' };
+  const body = (preset || [ex]).map(r => cols.map(c => c.key === 'governorate' ? (r.governorate || r.govRaw || '')
+    : c.key === 'allow_open' ? (r.allow_open === false ? 'لا' : 'نعم') : (r[c.key] ?? '')));
+  const ws = XLSX.utils.aoa_to_sheet([head, ...body]);
+  ws['!cols'] = cols.map(c => ({ wch: c.key === 'address' ? 40 : Math.max(14, c.label.length + 4) }));
   const gs = XLSX.utils.aoa_to_sheet([['المحافظات المتاحة'], ...GOVS.map(g => [g])]);
   gs['!cols'] = [{ wch: 22 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'الطلبات');
   XLSX.utils.book_append_sheet(wb, gs, 'المحافظات');
   wb.Workbook = { Views: [{ RTL: true }] };
-  XLSX.writeFile(wb, 'operative-orders-template.xlsx');
+  XLSX.writeFile(wb, fileName || 'operative-orders-template.xlsx');
 }
 
 function readSheetRows(buf) {
@@ -1308,6 +1315,7 @@ function buildImportRows(sheet) {
       items: get(r, 'items') || null,
       pieces: parseInt(toLatinDigits(get(r, 'pieces'))) || 1,
       cod_amount: parseAmount(get(r, 'cod_amount')),
+      qp_tracking: can('orders_edit') ? toLatinDigits(get(r, 'qp_tracking')).replace(/\s+/g, '') || null : null,
       client_ref: get(r, 'client_ref') || null,
       notes: get(r, 'notes') || null,
       allow_open: parseOpen(get(r, 'allow_open')),
@@ -1318,26 +1326,89 @@ function buildImportRows(sheet) {
 }
 function validateImportRow(o) {
   const e = [];
+  // الطلب اللي معاه سيريال اتشحن خلاص، فالهاتف والعنوان مش إجباريين فيه
+  const shipped = !!o.qp_tracking;
   if (!o.customer_name) e.push('الاسم ناقص');
-  if (!/^0\d{9,10}$/.test(o.customer_phone)) e.push('رقم الهاتف غير صحيح');
-  if (!o.address) e.push('العنوان ناقص');
+  if (!(shipped && !o.customer_phone) && !/^0\d{9,10}$/.test(o.customer_phone)) e.push('رقم الهاتف غير صحيح');
+  if (!o.address && !shipped) e.push('العنوان ناقص');
   if (o.cod_amount === null) e.push('المبلغ غير صحيح');
   if (!o.governorate) e.push(o.govRaw ? 'اختر المحافظة' : 'المحافظة ناقصة');
+  if (o.dupOf) e.push(o.dupOf);
   o.errors = e;
 }
+// السيريال: المكرر داخل الملف أو المسجّل على طلب موجود، وحالة الشحنة من فواتير شركة الشحن المرفوعة
+async function checkSerials(rows) {
+  const seen = {};
+  rows.forEach(r => { r.dupOf = null; if (!r.qp_tracking) return;
+    if (seen[r.qp_tracking]) r.dupOf = L(`السيريال مكرر في الملف (صف ${seen[r.qp_tracking]})`, `Serial repeated in file (row ${seen[r.qp_tracking]})`);
+    else seen[r.qp_tracking] = r.line; });
+  const serials = Object.keys(seen);
+  for (let i = 0; i < serials.length; i += 150) {
+    const { data } = await sb.from('orders').select('order_no, qp_tracking').in('qp_tracking', serials.slice(i, i + 150));
+    (data || []).forEach(o => rows.filter(r => r.qp_tracking === o.qp_tracking && !r.dupOf)
+      .forEach(r => { r.dupOf = L(`السيريال مسجّل على الطلب #${o.order_no}`, `Serial already on order #${o.order_no}`); }));
+  }
+  await invoiceStatus(rows.filter(r => r.qp_tracking && !r.dupOf));
+  rows.forEach(validateImportRow);
+}
+// لو الشحنة موجودة في فاتورة شركة الشحن: الطلب يتسجل مسلَّم/مرتجع بالمبلغ المحصّل وتاريخ التحصيل.
+// التاريخ اللي قبل بداية الحسابات بياخد تاريخ الفاتورة، عشان قيد الطلب يقابل قيد الفاتورة في «مستحقات لدى شركة الشحن».
+async function invoiceStatus(rows) {
+  rows.forEach(r => { r.inv = null; });
+  if (!rows.length) return;
+  const serials = rows.map(r => r.qp_tracking), byS = {};
+  for (let i = 0; i < serials.length; i += 150) {
+    const { data, error } = await sb.from('qp_invoice_lines').select('id, invoice_id, serial, type, collect_date, return_date, total_amount')
+      .in('serial', serials.slice(i, i + 150));
+    if (error) return;
+    (data || []).forEach(l => { if (!byS[l.serial] || l.id > byS[l.serial].id) byS[l.serial] = l; });
+  }
+  const invIds = [...new Set(Object.values(byS).map(l => l.invoice_id))];
+  const invDate = {};
+  for (let i = 0; i < invIds.length; i += 150) {
+    const { data } = await sb.from('qp_invoices').select('id, invoice_date').in('id', invIds.slice(i, i + 150));
+    (data || []).forEach(v => { invDate[v.id] = v.invoice_date; });
+  }
+  const { data: st } = await sb.from('acc_settings').select('start_date').eq('id', 1).maybeSingle();
+  const start = st && st.start_date;
+  rows.forEach(r => {
+    const l = byS[r.qp_tracking]; if (!l) return;
+    const ret = l.type === 'return' || (!!l.return_date && !l.collect_date);
+    let d = (ret ? l.return_date || l.collect_date : l.collect_date || l.return_date) || invDate[l.invoice_id] || isoDay();
+    if (start && d < start && invDate[l.invoice_id] && invDate[l.invoice_id] >= start) d = invDate[l.invoice_id];
+    r.inv = { status: ret ? 'returned' : 'delivered', collected: +l.total_amount || 0, date: d, invoice: l.invoice_id };
+  });
+}
+// بعد إضافة طلبات بسيريال: إعادة مطابقة فواتير شركة الشحن اللي فيها السيريالات دي
+async function rematchSerials(serials) {
+  if (!serials.length || !can('accounting_edit')) return 0;
+  const inv = new Set();
+  for (let i = 0; i < serials.length; i += 150) {
+    const { data } = await sb.from('qp_invoice_lines').select('invoice_id').is('order_id', null).in('serial', serials.slice(i, i + 150));
+    (data || []).forEach(l => inv.add(l.invoice_id));
+  }
+  let n = 0;
+  for (const id of inv) { const { data } = await sb.rpc('qp_invoice_rematch', { p_id: id }); n += +data || 0; }
+  return n;
+}
 
-function openImport() {
+function openImport(preset) {
+  if (!preset || !Array.isArray(preset.rows)) preset = null;   // الزرار بيبعت event
   const A = S.isAdmin;
-  const m = modal({ title: 'رفع طلبات من ملف Excel', wide: true, body: `
+  const m = modal({ title: preset ? preset.title : 'رفع طلبات من ملف Excel', wide: true, body: `
     <div class="import-steps">
-      <div class="alert info">
+      ${preset ? `<div class="alert info">${L('الشحنات دي موجودة في فاتورة شركة الشحن ومش متسجّلة في النظام. اختر العميل واضغط «إضافة» — أو نزّلها كملف Excel، كمّل بياناتها (الهاتف والعنوان)، وارفعها من «رفع Excel» في صفحة الطلبات. السيريال بيتسجّل كرقم تتبع، والطلب ما بيتبعتش لشركة الشحن تاني، وبعد الإضافة الفاتورة بتتطابق تلقائيًا.',
+        'These shipments are in the courier invoice but not in the system. Choose the client and press "Add" — or download them as Excel, complete the phone and address, and upload from "Upload Excel" on the orders page. The serial is saved as the tracking number, the order is not sent to the courier again, and the invoice is re-matched automatically.')}</div>` : `<div class="alert info">
         <b>الخطوات:</b> ١) نزّل النموذج واملأه بالطلبات، صف لكل طلب. ٢) ارفع الملف. ٣) راجع الطلبات واضغط "إضافة".
         <div class="small" style="margin-top:6px">يمكنك أيضًا رفع ملف بأعمدة مختلفة؛ سيتعرّف النظام على الأعمدة المعروفة مثل الاسم والهاتف والعنوان والمحافظة والمبلغ.</div>
-      </div>
+        ${can('orders_edit') ? `<div class="small" style="margin-top:6px">${L('عمود «سيريال شركة الشحن» اختياري: لو الطلب اتشحن خلاص اكتب السيريال فيه، فيتسجّل كرقم تتبع وما يتبعتش لشركة الشحن تاني (والهاتف والعنوان بيبقوا اختياريين).',
+          'The "Courier serial" column is optional: if the order was already shipped, write its serial so it is saved as the tracking number and not sent to the courier again (phone and address become optional).')}
+          ${L('ولو الشحنة موجودة في فاتورة شركة الشحن المرفوعة، الطلب بيتسجل مسلَّم أو مرتجع بالمبلغ المحصّل على طول.', 'If the shipment is in an uploaded courier invoice, the order is recorded as delivered or returned with the collected amount right away.')}</div>` : ''}
+      </div>`}
       <div class="toolbar">
         ${A ? clientSelect('impClient', '— اختر العميل —', OF.client) : ''}
-        <button class="btn" id="impTpl">تنزيل النموذج</button>
-        <label class="btn primary" style="cursor:pointer">اختيار الملف<input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden></label>
+        ${preset ? `<button class="btn" id="impDl">${L('تنزيل كملف Excel', 'Download as Excel')}</button>` : `<button class="btn" id="impTpl">تنزيل النموذج</button>
+        <label class="btn primary" style="cursor:pointer">اختيار الملف<input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden></label>`}
         <span class="muted small" id="impName"></span>
       </div>
       <div id="impBody"></div>
@@ -1353,20 +1424,27 @@ function openImport() {
     $('#impBody', m.el).innerHTML = `
       ${bad ? `<div class="alert">يوجد ${bad} صف يحتاج تصحيحًا (باللون الأحمر). الصفوف الصحيحة فقط هي التي ستُضاف — يمكنك تصحيح الملف ورفعه من جديد.</div>` : '<div class="alert ok">كل الصفوف سليمة ✓</div>'}
       <div class="table-wrap" style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:8px">
-      <table class="t"><thead><tr><th>#</th><th>المستلم</th><th>الهاتف</th><th>المحافظة</th><th class="hide-sm">العنوان</th><th>المبلغ</th><th>الحالة</th></tr></thead><tbody>
+      <table class="t"><thead><tr><th>#</th><th>المستلم</th><th>الهاتف</th><th>المحافظة</th><th class="hide-sm">العنوان</th><th>المبلغ</th><th class="hide-sm">${L('السيريال', 'Serial')}</th><th>الحالة</th></tr></thead><tbody>
       ${rows.map((r, i) => `<tr class="${r.errors.length ? 'row-err' : ''}">
         <td class="num muted">${r.line}</td><td>${esc(r.customer_name)}</td><td><span class="ltr">${esc(r.customer_phone)}</span></td>
         <td>${r.governorate && !r.govFixed ? esc(r.governorate)
           : `<select class="impGov" data-i="${i}" style="min-width:120px">${govOptions(r.governorate)}</select>${r.govRaw ? `<div class="muted small">في الملف: ${esc(r.govRaw)}</div>` : ''}`}</td>
         <td class="hide-sm small">${esc(r.address).slice(0, 60)}</td><td class="num">${r.cod_amount ?? ''}</td>
+        <td class="hide-sm small"><span class="ltr">${esc(r.qp_tracking || '')}</span>${r.inv ? `<div>${badge(r.inv.status)} <span class="muted">${L(`فاتورة ${r.inv.invoice}`, `Invoice ${r.inv.invoice}`)}</span></div>` : ''}</td>
         <td>${r.errors.length ? `<span class="neg small">${r.errors.join('، ')}</span>` : '<span class="pos">✓</span>'}</td></tr>`).join('')}
       </tbody></table></div>`;
     $$('.impGov', m.el).forEach(sel => sel.onchange = () => {
       const r = rows[+sel.dataset.i]; r.governorate = sel.value || null; r.govFixed = true; validateImportRow(r); render();
     });
   };
-  $('#impTpl', m.el).onclick = e => busy(e.currentTarget, async () => { try { await loadXLSX(); downloadTemplate(); } catch (err) { fail(err); } });
-  $('#impFile', m.el).onchange = async e => {
+  if (preset) {
+    $('#impDl', m.el).onclick = e => busy(e.currentTarget, async () => { try { await loadXLSX(); downloadTemplate(rows, preset.fileName); } catch (err) { fail(err); } });
+    rows = preset.rows;
+    rows.forEach(r => { if (!r.governorate) r.govFixed = true; });
+    $('#impBody', m.el).innerHTML = '<div class="empty">جارٍ قراءة الملف...</div>';
+    checkSerials(rows).then(render);
+  } else $('#impTpl', m.el).onclick = e => busy(e.currentTarget, async () => { try { await loadXLSX(); downloadTemplate(); } catch (err) { fail(err); } });
+  if (!preset) $('#impFile', m.el).onchange = async e => {
     const file = e.target.files[0]; if (!file) return;
     $('#impName', m.el).textContent = file.name;
     $('#impBody', m.el).innerHTML = '<div class="empty">جارٍ قراءة الملف...</div>';
@@ -1376,6 +1454,7 @@ function openImport() {
       if (!sheet) { rows = []; render(); $('#impBody', m.el).innerHTML = '<div class="alert">لم يتم التعرّف على أعمدة الملف. استخدم النموذج، أو تأكد أن أول صف فيه عناوين الأعمدة (الاسم، الهاتف، العنوان، المحافظة، المبلغ).</div>'; return; }
       rows = buildImportRows(sheet);
       rows.forEach(r => { if (!r.governorate) r.govFixed = true; });
+      await checkSerials(rows);
       if (!rows.length) { $('#impBody', m.el).innerHTML = '<div class="alert">الملف لا يحتوي على طلبات.</div>'; }
       render();
     } catch (err) { fail(err); $('#impBody', m.el).innerHTML = ''; }
@@ -1392,12 +1471,18 @@ function openImport() {
         const chunk = ok.slice(i, i + 100).map(r => ({
           client_id: clientId, customer_name: r.customer_name, customer_phone: r.customer_phone, customer_phone2: r.customer_phone2,
           governorate: r.governorate, city: r.city, address: r.address, items: r.items, pieces: r.pieces,
-          cod_amount: r.cod_amount, client_ref: r.client_ref, notes: r.notes, allow_open: r.allow_open }));
+          cod_amount: r.cod_amount, client_ref: r.client_ref, notes: r.notes, allow_open: r.allow_open,
+          ...(!r.qp_tracking ? {} : r.inv ? { qp_tracking: r.qp_tracking, status: r.inv.status, collected_amount: r.inv.collected,
+            closed_at: `${r.inv.date}T12:00:00+02:00`, shipped_at: `${r.inv.date}T12:00:00+02:00` }
+            : { qp_tracking: r.qp_tracking, status: 'shipped' }) }));
         const { error } = await sb.from('orders').insert(chunk);
-        if (error) { fail(error); if (done) toast(`تمت إضافة ${done} طلب قبل حدوث الخطأ`, 'ok'); loadOrders(); return; }
+        if (error) { fail(error); if (done) toast(`تمت إضافة ${done} طلب قبل حدوث الخطأ`, 'ok'); if (preset) preset.done && preset.done(); else loadOrders(); return; }
         done += chunk.length; btn.textContent = `جارٍ الإضافة... ${done}/${ok.length}`;
       }
-      toast(`تمت إضافة ${done} طلب`, 'ok'); m.close(); loadOrders();
+      const matched = await rematchSerials(ok.map(r => r.qp_tracking).filter(Boolean));
+      toast(L(`تمت إضافة ${done} طلب${matched ? ` — وتمت مطابقة ${matched} شحنة في فواتير شركة الشحن` : ''}`,
+        `${done} order(s) added${matched ? ` — ${matched} shipment(s) matched in courier invoices` : ''}`), 'ok');
+      m.close(); if (preset && preset.done) preset.done(); else loadOrders();
     });
   };
 }
@@ -2446,6 +2531,7 @@ async function openQpInvoice(id, reload) {
   const brands = {};
   lines.filter(l => !l.order_id).forEach(l => { const b = brands[l.brand || 'أخرى'] || (brands[l.brand || 'أخرى'] = { n: 0, t: 0, f: 0, c: 0 }); b.n++; b.t += +l.total_amount; b.f += +l.total_fees; b.c += +l.cod; });
   const acc = inv.received_account_id && A.byId[inv.received_account_id];
+  const regE = S.isAdmin && can('orders_edit');
   const m = modal({ title: `فاتورة شركة الشحن رقم ${inv.id}`, wide: true, body: `
     <dl class="kv small"><dt>الملف</dt><dd>${esc(inv.file_name || '')}</dd><dt>تاريخ الفاتورة</dt><dd>${dt(inv.invoice_date)}</dd>
       <dt>رفعها</dt><dd>${esc(inv.uploaded_by_name || '')} <span class="muted">${dtt(inv.created_at)}</span></dd>
@@ -2456,9 +2542,11 @@ async function openQpInvoice(id, reload) {
       <div><span class="muted small">الصافي المستحق من شركة الشحن</span><b>${egp(inv.total_cod)}</b></div></div>
     ${diffIds.length ? `<div class="alert">يوجد ${diffIds.length} طلب المبلغ المحصّل فيه عند شركة الشحن مختلف عن المسجّل في النظام.</div>` : ''}
     ${Object.keys(brands).length ? `<div class="section-title">شحنات غير مسجّلة في النظام (حسب البراند)</div><div class="table-wrap"><table class="t">
-      <thead><tr><th>البراند</th><th>الشحنات</th><th>المحصّل</th><th>الرسوم</th><th>الصافي</th></tr></thead><tbody>
-      ${Object.entries(brands).sort((a, b) => b[1].n - a[1].n).map(([k, b]) => `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td>${amt(b.t)}</td><td>${amt(b.f)}</td><td>${signed(b.c)}</td></tr>`).join('')}
-      </tbody></table></div>` : ''}
+      <thead><tr><th>البراند</th><th>الشحنات</th><th>المحصّل</th><th>الرسوم</th><th>الصافي</th>${regE ? '<th></th>' : ''}</tr></thead><tbody>
+      ${Object.entries(brands).sort((a, b) => b[1].n - a[1].n).map(([k, b]) => `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td>${amt(b.t)}</td><td>${amt(b.f)}</td><td>${signed(b.c)}</td>
+        ${regE ? `<td><button class="btn sm qvReg" data-b="${esc(k)}">${L('تسجيلها كطلبات', 'Register as orders')}</button></td>` : ''}</tr>`).join('')}
+      </tbody></table></div>
+      ${regE ? `<div class="toolbar"><button class="btn" id="qvRegAll">${L('تسجيل كل الشحنات غير المسجّلة كطلبات', 'Register all unregistered shipments as orders')}</button></div>` : ''}` : ''}
     <div class="section-title">الشحنات</div>
     <div class="toolbar"><select id="qvF">${opt('', 'كل الشحنات')}${opt('matched', 'المسجّلة في النظام')}${opt('diff', 'فيها فرق')}${opt('out', 'غير مسجّلة في النظام')}</select>
       <input class="grow" id="qvQ" placeholder="بحث برقم التتبع أو الاسم أو الملاحظات"><span class="muted small" id="qvN"></span></div>
@@ -2483,6 +2571,20 @@ async function openQpInvoice(id, reload) {
   };
   $('#qvF', m.el).onchange = filt; $('#qvQ', m.el).oninput = filt;
   const refresh = () => { m.close(); reload && reload(); openQpInvoice(id, reload); };
+  // تسجيل الشحنات غير المسجّلة كطلبات (من بيانات الفاتورة: الاسم، المحافظة، المبلغ، السيريال)
+  const regOpen = brand => {
+    const sel = lines.filter(l => !l.order_id && (brand === null || (l.brand || 'أخرى') === brand));
+    const seen = new Set();
+    const rows = sel.filter(l => !seen.has(l.serial) && seen.add(l.serial)).map((l, i) => ({
+      line: i + 1, customer_name: l.full_name || '', customer_phone: '', customer_phone2: null,
+      govRaw: l.governorate || '', governorate: matchGov(l.governorate || ''), city: null, address: '', items: null, pieces: 1,
+      cod_amount: +l.total_amount || 0, qp_tracking: String(l.serial), client_ref: null, notes: null, allow_open: true }));
+    const b = brand === null ? '' : brand;
+    openImport({ rows, title: L(`تسجيل شحنات غير مسجّلة كطلبات${b ? ` — ${b}` : ''}`, `Register unregistered shipments as orders${b ? ` — ${b}` : ''}`),
+      fileName: `qp-invoice-${inv.id}${b ? '-' + b.replace(/[^\w\u0600-\u06FF-]+/g, '_') : ''}.xlsx`, done: refresh });
+  };
+  $$('.qvReg', m.el).forEach(btn => btn.onclick = () => regOpen(btn.dataset.b));
+  if ($('#qvRegAll', m.el)) $('#qvRegAll', m.el).onclick = () => regOpen(null);
   $$('.olink', m.el).forEach(a => a.onclick = async ev => {
     ev.preventDefault();
     const { data: o } = await sb.from('orders').select('*').eq('id', a.dataset.oid).maybeSingle();
