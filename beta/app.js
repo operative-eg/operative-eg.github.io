@@ -796,7 +796,7 @@ function renderProfit(PD, from, to, client) {
   const tp = T.rev - T.cost;
   const cells = x => { const p = x.rev - x.cost;
     return `<td class="num">${x.n} <span class="muted small hide-sm">(${x.d}/${x.ret})</span></td><td class="hide-sm">${amt(x.rev)}</td>
-      <td class="hide-sm">${amt(x.cost)}${x.est ? ` <span class="badge b-amber" title="${L('طلبات تكلفتها تقديرية لأن فاتورة شركة الشحن بتاعتها لسه ما اترفعتش', 'Orders with estimated cost (courier invoice not uploaded yet)')}">~${x.est}</span>` : ''}</td>
+      <td class="hide-sm">${amt(x.cost)}${x.est ? ` <span class="badge b-amber ltr" title="${L('طلبات تكلفتها تقديرية لأن فاتورة شركة الشحن بتاعتها لسه ما اترفعتش', 'Orders with estimated cost (courier invoice not uploaded yet)')}">~${x.est}</span>` : ''}</td>
       <td>${signed(p)}</td><td class="num hide-sm">${pct(p, x.rev)}</td><td class="num">${tp > 0 ? pct(p, tp) : '—'}</td>`; };
   const body = Object.entries(G).sort((a, b) => (b[1].rev - b[1].cost) - (a[1].rev - a[1].cost)).map(([cid, c]) => {
     const bl = Object.entries(c.brands).sort((a, b) => (b[1].rev - b[1].cost) - (a[1].rev - a[1].cost));
