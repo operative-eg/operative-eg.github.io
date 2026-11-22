@@ -76,7 +76,7 @@ const DICT = {
   'اليوم': 'Today', 'آخر 7 أيام': 'Last 7 days', 'هذا الشهر': 'This month', 'الشهر الماضي': 'Last month', 'كل الفترات': 'All time',
   'كل العملاء': 'All clients', 'إجمالي الطلبات': 'Total orders', 'في الطريق': 'In transit', 'منها هولد': 'Of which on hold',
   'نسبة التسليم': 'Delivery rate', 'تحصيل متوقع (طلبات مفتوحة)': 'Expected COD (open orders)', 'المحصّل': 'Collected',
-  'إيرادات الشركة': 'Company revenue', 'إجمالي التكلفة': 'Total cost', 'مستحقات العملاء غير المسوّاة': 'Unsettled client balances',
+  'إيرادات الشركة': 'Company revenue', 'رسوم الطلبات على العملاء': 'Order fees charged to clients', 'إجمالي التكلفة': 'Total cost', 'مستحقات العملاء غير المسوّاة': 'Unsettled client balances',
   'رصيدك المستحق غير المسوّى': 'Your unsettled balance', 'ملخص العملاء (كل الفترات)': 'Clients summary (all time)',
   'العميل': 'Client', 'مستحق غير مسوّى': 'Unsettled due', 'لا يوجد عملاء بعد، ابدأ من صفحة العملاء': 'No clients yet — start from the Clients page',
   'أسعار الخدمة الخاصة بك': 'Your service prices', 'التجهيز والتغليف': 'Fulfillment & packaging', 'المرتجع (أساسي)': 'Return (base)',
@@ -605,9 +605,14 @@ const setTitle = t => { $('#pageTitle').textContent = t; document.title = `${tr(
 // =====================================================================
 async function viewDashboard() {
   setTitle('لوحة التحكم');
+  const fin = S.isAdmin && (can('accounting_view') || can('accounting_edit'));
   $('#view').innerHTML = `<div class="toolbar">${periodSelect('dPeriod')}
     ${S.isAdmin ? clientSelect('dClient', 'كل العملاء') : ''}</div>
-    <div class="cards" id="dCards"></div><div id="dExtra"></div>`;
+    ${fin ? `<div class="dash-sec">${L('الأرباح والحسابات', 'Profit & accounts')}</div><div id="dFin"><div class="empty">جارٍ التحميل...</div></div>` : ''}
+    ${fin ? `<div class="dash-sec">${L('الطلبات والشحنات', 'Orders & shipments')}</div>` : ''}
+    <div class="cards" id="dCards"></div>
+    ${fin ? '<div id="dProfit"></div>' : ''}<div id="dExtra"></div>`;
+  let PD = null; // بيانات الربح (تُحمَّل مرة واحدة)
   const load = async () => {
     const [from, to] = periodRange($('#dPeriod').value);
     const client = S.isAdmin ? nz($('#dClient').value) : S.profile.client_id;
@@ -623,11 +628,18 @@ async function viewDashboard() {
       ['إجمالي الطلبات', s.total], ['قيد التجهيز', s.new], ['في الطريق', s.in_transit, 'indigo'], ['منها هولد', s.on_hold ?? 0, 'orange'],
       ['تم التسليم', s.delivered, 'green'], ['مرتجع', s.returned, 'red'], ['نسبة التسليم', `${rate}%`],
       ['تحصيل متوقع (طلبات مفتوحة)', egp(s.cod_pending)], ['المحصّل', egp(s.collected), 'green'],
-      [S.isAdmin ? 'إيرادات الشركة' : 'إجمالي التكلفة', egp(s.fees)],
+      [S.isAdmin ? 'رسوم الطلبات على العملاء' : 'إجمالي التكلفة', egp(s.fees)],
       [S.isAdmin ? 'مستحقات العملاء غير المسوّاة' : 'رصيدك المستحق غير المسوّى', egp(all.unsettled_net), 'primary'],
     ];
     $('#dCards').innerHTML = cards.map(([l, v, c]) =>
       `<div class="card ${c || ''}"><div class="lbl">${l}</div><div class="val">${v}</div></div>`).join('');
+    if (fin) {
+      try {
+        if (!PD) PD = await loadProfitData();
+        await renderFinance(PD, from, to);
+        renderProfit(PD, from, to, client);
+      } catch (e) { fail(e); }
+    }
   };
   $('#dPeriod').onchange = load;
   if (S.isAdmin) $('#dClient').onchange = load;
@@ -659,6 +671,173 @@ async function viewDashboard() {
         </tbody></table></div>` : ''}
     </div></div>`;
   }
+}
+
+// ---------------- لوحة التحكم: الأرباح ----------------
+// جلب كل الصفوف على دفعات (Supabase بيرجّع 1000 صف بحد أقصى في الطلب الواحد)
+async function fetchAllRows(build) {
+  const out = []; const N = 1000;
+  for (let i = 0; ; i += N) {
+    const { data, error } = await build().range(i, i + N - 1);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < N) return out;
+  }
+}
+// توحيد أسماء البراندات (نفس البراند بيتكتب عربي وإنجليزي)
+const BRAND_ALIAS = { 'كيزك': 'Caseq', 'كيس كيو': 'Caseq', 'بامبي': 'Bambie', 'بامبي ستوديو': 'Bambie', 'bambie studio': 'Bambie',
+  'جراباتي': 'Grabatty', 'كليوري': 'Cleory', 'كوزي': 'Cozy', 'كارتال': 'Kartall',
+  'اليزيه سيلفر': 'اليزيه سيلڤر', 'ايليزيه سيلفر': 'اليزيه سيلڤر', 'eleze silver': 'اليزيه سيلڤر' };
+const brandKey = b => String(b || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ڤ/g, 'ف');
+const BRAND_NORM = Object.fromEntries(Object.entries(BRAND_ALIAS).map(([k, v]) => [brandKey(k), v]));
+const brandName = b => { const k = brandKey(b); if (!k) return ''; if (BRAND_NORM[k]) return BRAND_NORM[k];
+  const t = String(b).trim().replace(/\s+/g, ' '); return /^[a-z]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t; };
+
+async function loadProfitData() {
+  await loadAccounts();
+  const [orders, lines, trialAll, inv] = await Promise.all([
+    fetchAllRows(() => sb.from('orders').select('id,client_id,brand,status,governorate,shipping_fee,fulfillment_fee,return_fee,closed_at')
+      .in('status', ['delivered', 'returned']).not('closed_at', 'is', null).order('closed_at')),
+    fetchAllRows(() => sb.from('qp_invoice_lines').select('order_id,total_fees').not('order_id', 'is', null).order('id')),
+    sb.rpc('acc_trial', { p_from: null, p_to: null }),
+    sb.from('qp_invoices').select('id,total_cod,received').eq('received', false),
+  ]);
+  if (trialAll.error) throw trialAll.error;
+  // تكلفة شركة الشحن الفعلية لكل طلب من الفواتير
+  const actual = {};
+  lines.forEach(l => { actual[l.order_id] = (actual[l.order_id] || 0) + +l.total_fees; });
+  // متوسط رسوم شركة الشحن حسب الحالة والمحافظة (للطلبات اللي فاتورتها لسه ما اترفعتش) — من غير المرتجعات المجانية عشان التقدير ما يبقاش متفائل
+  const acc = {};
+  const add = (k, v) => { const x = acc[k] || (acc[k] = [0, 0]); x[0] += v; x[1]++; };
+  orders.forEach(o => { const c = actual[o.id]; if (c == null || c <= 0) return; add(o.status + '|' + o.governorate, c); add(o.status, c); });
+  const avg = k => acc[k] ? Math.round(acc[k][0] / acc[k][1]) : null;
+  const rows = orders.map(o => {
+    const rev = +o.fulfillment_fee + (o.status === 'delivered' ? +o.shipping_fee : +o.return_fee);
+    const has = actual[o.id] != null;
+    const cost = has ? actual[o.id]
+      : (avg(o.status + '|' + o.governorate) ?? avg(o.status) ?? (o.status === 'delivered' ? +o.shipping_fee : +o.return_fee));
+    return { client: o.client_id, brand: brandName(o.brand), status: o.status, at: new Date(o.closed_at), rev, cost, est: !has };
+  });
+  return { rows, trialAll: trialAll.data || [], unpaidInv: inv.data || [] };
+}
+
+// إجماليات الحسابات من ميزان المراجعة
+function accTotals(trial) {
+  const t = { rev: 0, exp: 0, ship: 0, bal: {} };
+  trial.forEach(r => {
+    const a = A.byId[r.account_id]; if (!a) return;
+    const mv = +r.debit - +r.credit;
+    t.bal[a.id] = (t.bal[a.id] || 0) + +r.opening + mv;
+    if (a.type === 'revenue') t.rev -= mv;
+    if (a.type === 'expense') { t.exp += mv; if (a.system_key === 'ship_cost') t.ship += mv; }
+  });
+  return t;
+}
+const pct = (a, b) => b ? `${Math.round(a * 100 / b)}%` : '—';
+const fcard = (l, v, c = '', sub = '', href = '') =>
+  `<${href ? `a href="${href}"` : 'div'} class="card ${c} ${href ? 'link' : ''}"><div class="lbl">${l}</div><div class="val">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</${href ? 'a' : 'div'}>`;
+
+async function renderFinance(PD, from, to) {
+  const el = $('#dFin'); if (!el) return;
+  const start = A.start ? new Date(A.start + 'T00:00:00') : null;
+  // الفترة بتاريخ القاهرة؛ نهاية الفترة في periodRange مش داخلة فيها
+  let f = from ? isoDay(from) : null; const t = to ? isoDay(new Date(to.getTime() - 864e5)) : null;
+  const clipped = start && (!from || from < start);
+  if (clipped) f = A.start;
+  let P = null;
+  if (!(t && A.start && t < A.start)) {
+    const { data, error } = await sb.rpc('acc_trial', { p_from: f, p_to: t });
+    if (error) return fail(error);
+    P = accTotals(data || []);
+  }
+  const N = accTotals(PD.trialAll);
+  const balOf = filt => A.list.filter(a => a.level === 3 && filt(a)).reduce((s, a) => s + (N.bal[a.id] || 0), 0);
+  const cash = balOf(a => a.kind === 'cash' || a.kind === 'bank');
+  const qp = balOf(a => a.system_key === 'qp_receivable');
+  const owed = -balOf(a => a.system_key === 'client_funds');
+  const outside = -balOf(a => a.system_key === 'outside_collections');
+  const unpaid = PD.unpaidInv.reduce((s, i) => s + +i.total_cod, 0);
+  const net = P ? P.rev - P.exp : 0;
+  const sinceTxt = clipped ? L(`من بداية الحسابات ${dt(A.start)}`, `since accounts start ${dt(A.start)}`) : '';
+  el.innerHTML = `<div class="cards">
+      ${fcard(net >= 0 ? L('صافي الربح', 'Net profit') : L('صافي الخسارة', 'Net loss'), P ? egp(net) : '—', 'primary',
+        P ? (sinceTxt || L('الإيرادات − كل المصروفات', 'Revenue − all expenses')) : L('الفترة قبل بداية الحسابات', 'Period is before accounts start'), '#/accounting/income')}
+      ${fcard(L('إيرادات Operative', 'Operative revenue'), P ? egp(P.rev) : '—', 'green', L('شحن + تجهيز + مرتجعات', 'Shipping + fulfillment + returns'))}
+      ${fcard(L('تكلفة الشحن', 'Shipping cost'), P ? egp(P.ship) : '—', 'red', L('رسوم شركة الشحن', 'Courier fees'))}
+      ${fcard(L('مصروفات التشغيل', 'Operating expenses'), P ? egp(P.exp - P.ship) : '—', 'red', L('مرتبات، إيجار، وغيرها', 'Salaries, rent, etc.'))}
+      ${fcard(L('هامش الربح', 'Profit margin'), P ? pct(net, P.rev) : '—', '', L('صافي الربح ÷ الإيرادات', 'Net profit ÷ revenue'))}
+    </div>
+    <div class="cards">
+      ${fcard(L('النقدية (الخزنة + البنك)', 'Cash (safe + bank)'), egp(cash), '', L('الرصيد الحالي', 'Current balance'), '#/accounting/balance')}
+      ${fcard(L('فلوس عند شركة الشحن', 'Held by courier'), egp(qp), 'indigo', L('تحصيلات لسه ما اتحوّلتش', 'Collections not yet transferred'), '#/accounting/qp')}
+      ${fcard(L('فواتير شحن لم تُحوَّل', 'Courier invoices not received'), egp(unpaid), 'orange', L(`${PD.unpaidInv.length} فاتورة`, `${PD.unpaidInv.length} invoice(s)`), '#/accounting/qp')}
+      ${fcard(L('مستحق للعملاء', 'Owed to clients'), egp(owed), 'red', L('أموال العملاء المحصّلة', 'Collected client funds'), '#/accounting/clients')}
+      ${Math.abs(outside) >= 0.005 ? fcard(L('تحصيلات براندات خارج النظام', 'Outside-system brand collections'), egp(outside), '', L('حسب البراند', 'By brand'), '#/accounting/clients') : ''}
+    </div>
+    <div class="quick-links">${[['income', 'قائمة الدخل'], ['balance', 'الميزانية العمومية'], ['trial', 'ميزان المراجعة'],
+      ['clients', 'أرصدة العملاء'], ['qp', 'فواتير شركة الشحن'], ['journal', 'القيود']]
+      .map(([k, l]) => `<a class="btn sm" href="#/accounting/${k}">${l}</a>`).join('')}</div>`;
+}
+
+function renderProfit(PD, from, to, client) {
+  const el = $('#dProfit'); if (!el) return;
+  const inP = r => (!from || r.at >= from) && (!to || r.at < to);
+  const mine = PD.rows.filter(r => !client || r.client === client);
+  const rows = mine.filter(inP);
+  // تجميع: عميل ← براند
+  const G = {};
+  rows.forEach(r => {
+    const c = G[r.client] || (G[r.client] = { n: 0, d: 0, ret: 0, rev: 0, cost: 0, est: 0, brands: {} });
+    const b = c.brands[r.brand] || (c.brands[r.brand] = { n: 0, d: 0, ret: 0, rev: 0, cost: 0, est: 0 });
+    [c, b].forEach(x => { x.n++; x[r.status === 'delivered' ? 'd' : 'ret']++; x.rev += r.rev; x.cost += r.cost; if (r.est) x.est++; });
+  });
+  const T = Object.values(G).reduce((t, c) => { t.n += c.n; t.rev += c.rev; t.cost += c.cost; t.est += c.est; return t; }, { n: 0, rev: 0, cost: 0, est: 0 });
+  const tp = T.rev - T.cost;
+  const cells = x => { const p = x.rev - x.cost;
+    return `<td class="num">${x.n} <span class="muted small hide-sm">(${x.d}/${x.ret})</span></td><td class="hide-sm">${amt(x.rev)}</td>
+      <td class="hide-sm">${amt(x.cost)}${x.est ? ` <span class="badge b-amber ltr" title="${L('طلبات تكلفتها تقديرية لأن فاتورة شركة الشحن بتاعتها لسه ما اترفعتش', 'Orders with estimated cost (courier invoice not uploaded yet)')}">~${x.est}</span>` : ''}</td>
+      <td>${signed(p)}</td><td class="num hide-sm">${pct(p, x.rev)}</td><td class="num">${tp > 0 ? pct(p, tp) : '—'}</td>`; };
+  const body = Object.entries(G).sort((a, b) => (b[1].rev - b[1].cost) - (a[1].rev - a[1].cost)).map(([cid, c]) => {
+    const bl = Object.entries(c.brands).sort((a, b) => (b[1].rev - b[1].cost) - (a[1].rev - a[1].cost));
+    const showBrands = bl.filter(([b]) => b).length > 1; // التفصيل لما العميل يكون تحته أكتر من براند
+    return `<tr class="${showBrands ? 'grp' : ''}"><td><b>${esc(clientName(cid) || '—')}</b></td>${cells(c)}</tr>` +
+      (showBrands ? bl.map(([b, x]) => `<tr class="sub-row"><td class="ind2">${b ? esc(b) : `<span class="muted">${L('بدون براند', 'No brand')}</span>`}</td>${cells(x)}</tr>`).join('') : '');
+  }).join('');
+
+  // آخر 6 شهور (مجمل الربح من الطلبات)
+  const now = new Date(); const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const s = new Date(now.getFullYear(), now.getMonth() - i, 1), e = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    const m = mine.filter(r => r.at >= s && r.at < e);
+    const rev = m.reduce((a, r) => a + r.rev, 0), cost = m.reduce((a, r) => a + r.cost, 0);
+    months.push({ s, n: m.length, rev, cost, p: rev - cost });
+  }
+  const mx = Math.max(1, ...months.map(m => Math.abs(m.p)));
+  const hasNeg = months.some(m => m.p < 0);
+  const monthName = d => d.toLocaleDateString(EN ? 'en-GB' : 'ar-EG-u-nu-latn', { month: 'short', year: '2-digit' });
+  const chart = `<div class="mchart ${hasNeg ? 'has-neg' : ''}">${months.map(m => {
+    const h = Math.round(Math.abs(m.p) * 100 / mx);
+    const tip = `${monthName(m.s)} — ${L('الطلبات', 'Orders')}: ${m.n} · ${L('الإيراد', 'Revenue')}: ${money(m.rev)} · ${L('تكلفة الشحن', 'Shipping cost')}: ${money(m.cost)} · ${L('مجمل الربح', 'Gross profit')}: ${money(m.p)}`;
+    return `<div class="mcol" title="${esc(tip)}" tabindex="0"><div class="mval ltr">${m.n ? money(m.p) : ''}</div>
+      <div class="mplot"><div class="mbar ${m.p < 0 ? 'neg' : ''}" style="height:${m.n ? Math.max(h, 2) : 0}%"></div></div>
+      <div class="mlbl">${esc(monthName(m.s))}</div></div>`; }).join('')}</div>`;
+
+  el.innerHTML = `<div class="dash-grid">
+    <div class="panel"><div class="panel-h"><span>${L('الربح حسب العميل والبراند', 'Profit by client & brand')}</span>
+      <span class="muted small">${L('الطلبات المقفولة في الفترة', 'Orders closed in period')}</span></div><div class="table-wrap">
+      <table class="t profit"><thead><tr><th>${L('العميل / البراند', 'Client / brand')}</th><th>${L('الطلبات', 'Orders')} <span class="muted small hide-sm">(${L('مسلّم/مرتجع', 'del./ret.')})</span></th>
+        <th class="hide-sm">${L('إيرادنا', 'Our revenue')}</th><th class="hide-sm">${L('تكلفة الشحن', 'Shipping cost')}</th><th>${L('مجمل الربح', 'Gross profit')}</th>
+        <th class="hide-sm">${L('الهامش', 'Margin')}</th><th>${L('من الربح', 'Share')}</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="7" class="empty">${L('لا توجد طلبات مسلّمة أو مرتجعة في الفترة', 'No delivered or returned orders in this period')}</td></tr>`}</tbody>
+      ${body ? `<tfoot><tr><td>${L('الإجمالي', 'Total')}</td><td class="num">${T.n}</td><td class="hide-sm">${amt(T.rev)}</td><td class="hide-sm">${amt(T.cost)}</td>
+        <td>${signed(tp)}</td><td class="num hide-sm">${pct(tp, T.rev)}</td><td class="num">100%</td></tr></tfoot>` : ''}</table></div>
+      <p class="hint" style="padding:0 16px">${L(`مجمل الربح = رسومنا على العميل (شحن أو مرتجع + تجهيز) − رسوم شركة الشحن، قبل المصروفات العامة (مرتبات، إيجار…). التكلفة من فواتير شركة الشحن المرفوعة؛ والطلبات اللي فاتورتها لسه ما اترفعتش (عليها <span class="badge b-amber">~</span>) تكلفتها تقديرية بمتوسط رسوم شركة الشحن لنفس المحافظة.${T.est ? ` في الفترة دي ${T.est} طلب من ${T.n} تكلفتهم تقديرية.` : ''}`,
+        `Gross profit = our fees to the client (shipping or return + fulfillment) − courier fees, before overheads (salaries, rent…). Cost comes from uploaded courier invoices; orders whose invoice isn't uploaded yet (marked <span class="badge b-amber">~</span>) use the courier's average fee for the same governorate.${T.est ? ` ${T.est} of ${T.n} orders in this period are estimated.` : ''}`)}</p></div>
+    <div class="panel"><div class="panel-h"><span>${L('مجمل الربح — آخر 6 شهور', 'Gross profit — last 6 months')}</span>
+      <span class="muted small">${client ? esc(clientName(client)) : L('كل العملاء', 'All clients')}</span></div>
+      <div class="panel-b">${chart}<p class="hint" style="margin:8px 0 0">${L('مرّر على أي شهر لعرض التفاصيل.', 'Hover a month for details.')}</p></div></div>
+  </div>`;
 }
 
 // =====================================================================
