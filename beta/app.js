@@ -711,7 +711,7 @@ async function loadProfitData() {
   const acc = {};
   const add = (k, v) => { const x = acc[k] || (acc[k] = [0, 0]); x[0] += v; x[1]++; };
   orders.forEach(o => { const c = actual[o.id]; if (c == null || c <= 0) return; add(o.status + '|' + o.governorate, c); add(o.status, c); });
-  const avg = k => acc[k] ? acc[k][0] / acc[k][1] : null;
+  const avg = k => acc[k] ? Math.round(acc[k][0] / acc[k][1]) : null;
   const rows = orders.map(o => {
     const rev = +o.fulfillment_fee + (o.status === 'delivered' ? +o.shipping_fee : +o.return_fee);
     const has = actual[o.id] != null;
@@ -800,7 +800,7 @@ function renderProfit(PD, from, to, client) {
       <td>${signed(p)}</td><td class="num hide-sm">${pct(p, x.rev)}</td><td class="num">${tp > 0 ? pct(p, tp) : '—'}</td>`; };
   const body = Object.entries(G).sort((a, b) => (b[1].rev - b[1].cost) - (a[1].rev - a[1].cost)).map(([cid, c]) => {
     const bl = Object.entries(c.brands).sort((a, b) => (b[1].rev - b[1].cost) - (a[1].rev - a[1].cost));
-    const showBrands = bl.length > 1 || (bl.length === 1 && bl[0][0]);
+    const showBrands = bl.filter(([b]) => b).length > 1; // التفصيل لما العميل يكون تحته أكتر من براند
     return `<tr class="${showBrands ? 'grp' : ''}"><td><b>${esc(clientName(cid) || '—')}</b></td>${cells(c)}</tr>` +
       (showBrands ? bl.map(([b, x]) => `<tr class="sub-row"><td class="ind2">${b ? esc(b) : `<span class="muted">${L('بدون براند', 'No brand')}</span>`}</td>${cells(x)}</tr>`).join('') : '');
   }).join('');
@@ -815,7 +815,7 @@ function renderProfit(PD, from, to, client) {
   }
   const mx = Math.max(1, ...months.map(m => Math.abs(m.p)));
   const hasNeg = months.some(m => m.p < 0);
-  const monthName = d => d.toLocaleDateString(EN ? 'en-GB' : 'ar-EG', { month: 'short', year: '2-digit' });
+  const monthName = d => d.toLocaleDateString(EN ? 'en-GB' : 'ar-EG-u-nu-latn', { month: 'short', year: '2-digit' });
   const chart = `<div class="mchart ${hasNeg ? 'has-neg' : ''}">${months.map(m => {
     const h = Math.round(Math.abs(m.p) * 100 / mx);
     const tip = `${monthName(m.s)} — ${L('الطلبات', 'Orders')}: ${m.n} · ${L('الإيراد', 'Revenue')}: ${money(m.rev)} · ${L('تكلفة الشحن', 'Shipping cost')}: ${money(m.cost)} · ${L('مجمل الربح', 'Gross profit')}: ${money(m.p)}`;
