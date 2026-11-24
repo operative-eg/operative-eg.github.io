@@ -155,7 +155,7 @@ const DICT = {
   'تأكيد التسوية': 'Confirm settlement', 'عدد الطلبات': 'Orders', 'تاريخ الإقفال': 'Closed on', 'لا توجد طلبات جاهزة للتسوية لهذا العميل': 'No orders ready to settle for this client',
   'لا توجد طلبات جاهزة للتسوية': 'No orders ready to settle', 'تم إنشاء التسوية': 'Settlement created', 'كشف تسوية حساب': 'Account settlement statement',
   'رقم التسوية': 'Settlement no.', 'إجمالي المحصّل': 'Total collected', 'بحث داخل التسوية: رقم التتبع، رقم الطلب، الاسم':
-    'Search this settlement: tracking no., order no., name', 'طباعة / حفظ PDF': 'Print / save PDF', 'عرض صورة التحويل': 'View transfer proof',
+    'Search this settlement: tracking no., order no., name', 'طباعة / حفظ PDF': 'Print / save PDF', 'تنزيل Excel': 'Download Excel', 'عرض صورة التحويل': 'View transfer proof',
   'تسجيل الدفع': 'Record payment', 'رفع صورة التحويل': 'Upload transfer proof', 'تغيير صورة التحويل': 'Change transfer proof',
   'إلغاء التسوية': 'Cancel settlement', 'طريقة / مرجع الدفع': 'Payment method / reference', 'مثال: إنستاباي، تحويل بنكي، نقدًا': 'e.g. InstaPay, bank transfer, cash',
   'صورة التحويل': 'Transfer proof', '(اختياري — صورة أو PDF)': '(optional — image or PDF)', 'تم تسجيل الدفع': 'Payment recorded',
@@ -1956,6 +1956,7 @@ function newSettlement() {
       if (error) return fail(error);
       toast('تم اعتماد مبالغ شركة الشحن', 'ok'); $('#nsClient', m.el).dispatchEvent(new Event('change'));
     });
+    bindOrderLinks($('#nsBody', m.el), id => rows.find(x => x.id === id), () => $('#nsClient', m.el).dispatchEvent(new Event('change')));
     $$('.nsSel', m.el).forEach(c => c.onchange = recalc);
     // «تحديد الكل» يطبَّق على الصفوف الظاهرة فقط (بعد البحث)
     $('#nsAll', m.el).onchange = ev => { $$('.nsRow', m.el).filter(tr => tr.style.display !== 'none').forEach(tr => $('.nsSel', tr).checked = ev.target.checked); recalc(); };
@@ -2014,6 +2015,58 @@ function openProofUpload(s, done) {
   };
 }
 
+// كشف التسوية كملف Excel: ورقة ملخص للعميل نفسه + ورقة بكل تفاصيل الطلبات (فيها البراند ورقم طلب البراند عشان العميل يفصل حساباته)
+async function exportSettlementXlsx(s, orders, client) {
+  await loadXLSX();
+  const n = v => Math.round(+v * 100) / 100;
+  const del = orders.filter(o => o.status === 'delivered'), ret = orders.filter(o => o.status === 'returned');
+  const sum = (list, f) => n(list.reduce((t, o) => t + +f(o), 0));
+  const status = s.status === 'paid' ? `مدفوعة ${dt(s.paid_at)}` : 'غير مدفوعة';
+  const summary = [
+    ['Operative — كشف تسوية حساب'], [],
+    ['رقم التسوية', s.settlement_no], ['العميل', client.name || ''], ['تاريخ التسوية', dt(s.created_at)], ['الحالة', status],
+    ...(s.status === 'paid' && s.payment_ref ? [['مرجع الدفع', s.payment_ref]] : []), [],
+    ['عدد الطلبات', orders.length], ['منها تم التسليم', del.length], ['منها مرتجع', ret.length], [],
+    ['إجمالي المحصّل', n(s.total_collected)],
+    ['رسوم الشحن', sum(del, o => o.shipping_fee)], ['رسوم المرتجعات', sum(ret, o => o.return_fee)], ['رسوم التجهيز والتغليف', sum(orders, o => o.fulfillment_fee)],
+    ['إجمالي التكلفة', n(s.total_fees)], ['الصافي المستحق لكم', n(s.net_amount)],
+    ...(s.notes ? [[], ['ملاحظات', s.notes]] : []),
+  ];
+  const cols = [
+    ['رقم الطلب', o => o.order_no], ['رقم الطلب لديكم', o => o.client_ref || ''], ['البراند', o => o.brand || ''],
+    ['رقم التتبع', o => o.qp_tracking || ''], ['تاريخ الطلب', o => dt(o.created_at)], ['تاريخ التسليم / الإرجاع', o => dt(o.closed_at)],
+    ['اسم المستلم', o => o.customer_name], ['الهاتف', o => o.customer_phone || ''], ['المحافظة', o => o.governorate], ['المنطقة', o => o.city || ''],
+    ['العنوان', o => o.address], ['المحتوى', o => o.items || ''], ['عدد القطع', o => o.pieces], ['الحالة', o => STATUS[o.status]?.label || o.status],
+    ['المطلوب تحصيله', o => n(o.cod_amount)], ['المحصّل', o => n(o.collected_amount)],
+    ['رسوم الشحن', o => o.status === 'delivered' ? n(o.shipping_fee) : 0], ['رسوم المرتجع', o => o.status === 'returned' ? n(o.return_fee) : 0],
+    ['التجهيز والتغليف', o => n(o.fulfillment_fee)], ['إجمالي التكلفة', o => n(orderCost(o))], ['الصافي', o => n(o.net_amount)], ['ملاحظات', o => o.notes || ''],
+  ];
+  // عمود البراند يظهر بس لو فيه طلبات عليها براند (العميل اللي مالوش براندات ما يتلخبطش)
+  if (!orders.some(o => o.brand)) cols.splice(cols.findIndex(c => c[0] === 'البراند'), 1);
+  const rows = orders.map(o => cols.map(([, f]) => f(o)));
+  const ws = XLSX.utils.aoa_to_sheet([cols.map(c => c[0]), ...rows]);
+  // صف الإجمالي بمعادلات (بيفضل صح لو العميل رتّب الصفوف)
+  const last = rows.length + 1, tot = last + 1;
+  const sumCols = ['المطلوب تحصيله', 'المحصّل', 'رسوم الشحن', 'رسوم المرتجع', 'التجهيز والتغليف', 'إجمالي التكلفة', 'الصافي'];
+  XLSX.utils.sheet_add_aoa(ws, [['الإجمالي']], { origin: `A${tot}` });
+  cols.forEach(([h], i) => {
+    if (!sumCols.includes(h)) return;
+    const c = XLSX.utils.encode_col(i);
+    ws[`${c}${tot}`] = { t: 'n', f: `SUM(${c}2:${c}${last})`, v: sum(orders, o => rows[orders.indexOf(o)][i]) };
+  });
+  ws['!ref'] = `A1:${XLSX.utils.encode_col(cols.length - 1)}${tot}`;
+  ws['!autofilter'] = { ref: `A1:${XLSX.utils.encode_col(cols.length - 1)}${last}` };
+  ws['!cols'] = cols.map(([h]) => ({ wch: ({ 'العنوان': 40, 'اسم المستلم': 22, 'المحتوى': 24, 'ملاحظات': 28, 'رقم التتبع': 14, 'الهاتف': 26, 'تاريخ التسليم / الإرجاع': 12 })[h] || Math.max(10, h.length + 2) }));
+  const ss = XLSX.utils.aoa_to_sheet(summary);
+  ss['!cols'] = [{ wch: 26 }, { wch: 22 }];
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.utils.book_append_sheet(wb, ss, 'التسوية');
+  XLSX.utils.book_append_sheet(wb, ws, 'الطلبات');
+  const safe = String(client.name || 'client').replace(/[\\/:*?"<>|]/g, '').trim();
+  XLSX.writeFile(wb, `تسوية-${s.settlement_no}-${safe}.xlsx`);
+}
+
 async function openSettlement(s, reload, q = '') {
   const { data: orders, error } = await sb.from('orders').select('*').eq('settlement_id', s.id).order('order_no');
   if (error) return fail(error);
@@ -2027,35 +2080,23 @@ async function openSettlement(s, reload, q = '') {
       <div><span class="muted small">إجمالي المحصّل</span><b>${egp(s.total_collected)}</b></div>
       <div><span class="muted small">إجمالي التكلفة</span><b>${egp(s.total_fees)}</b></div>
       <div><span class="muted small">الصافي للعميل</span><b>${egp(s.net_amount)}</b></div></div>`;
-  // البراند ورقم طلب البراند (للعملاء اللي تحتهم براندات زي Printive)
-  const BR = (orders || []).some(o => o.brand);
-  const brandHead = BR ? '<th>البراند</th><th>رقم طلب البراند</th>' : '';
-  const brandCells = o => BR ? `<td>${esc(o.brand || '—')}</td><td class="num">${esc(o.client_ref || '')}</td>` : '';
-  const brandSum = (() => {
-    if (!BR) return '';
-    const g = {};
-    (orders || []).forEach(o => { const k = o.brand || '—'; const x = g[k] || (g[k] = { n: 0, c: 0, f: 0, net: 0 });
-      x.n++; x.c += +o.collected_amount; x.f += orderCost(o); x.net += +o.net_amount; });
-    return `<div class="section-title">ملخص حسب البراند</div><table class="t"><thead><tr><th>البراند</th><th>الطلبات</th><th>المحصّل</th><th>التكلفة</th><th>الصافي</th></tr></thead><tbody>
-      ${Object.entries(g).sort((a, b) => b[1].n - a[1].n).map(([k, x]) => `<tr><td>${esc(k)}</td><td class="num">${x.n}</td><td class="num">${money(x.c)}</td><td class="num">${money(x.f)}</td><td>${signed(x.net)}</td></tr>`).join('')}
-      </tbody></table><div class="section-title">الطلبات</div>`;
-  })();
-  const table = `${brandSum}<table class="t"><thead><tr><th>رقم</th>${brandHead}<th>رقم التتبع</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}${qpHead(cmp)}</tr></thead>
-    <tbody>${(orders || []).map(o => `<tr class="stRow" data-s="${esc(orderSearchText(o))}"><td class="num"><a href="#" class="olink" data-oid="${o.id}">${orderNo(o)}</a>${o.client_ref && !BR ? ` <span class="muted small">(${esc(o.client_ref)})</span>` : ''}</td>
-      ${brandCells(o)}${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}${qpCell(o, cmp)}</tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="${BR ? 7 : 5}">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td>${cmp ? '<td class="qpcol"></td>' : ''}</tr></tfoot></table>
+  const table = `<table class="t"><thead><tr><th>رقم</th><th>رقم التتبع</th><th>المستلم</th><th>المحافظة</th><th>الحالة</th>${feeHead}${qpHead(cmp)}</tr></thead>
+    <tbody>${(orders || []).map(o => `<tr class="stRow" data-s="${esc(orderSearchText(o))}"><td class="num"><a href="#" class="olink" data-oid="${o.id}">${orderNo(o)}</a>${o.client_ref ? ` <span class="muted small">(${esc(o.client_ref)})</span>` : ''}</td>
+      ${trackCell(o)}<td>${esc(o.customer_name)}</td><td>${esc(o.governorate)}</td><td>${badge(o.status)}</td>${feeRow(o)}${qpCell(o, cmp)}</tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="5">الإجمالي</td><td class="num">${money(s.total_collected)}</td><td colspan="4"></td><td>${signed(s.net_amount)}</td>${cmp ? '<td class="qpcol"></td>' : ''}</tr></tfoot></table>
     ${s.notes ? `<p class="small"><b>ملاحظات:</b> ${esc(s.notes)}</p>` : ''}`;
   const E = S.isAdmin && can('settlements_edit');
   const m = modal({ title: `تسوية رقم ${s.settlement_no}`, wide: true,
     body: `${head}${qb.html}<div class="toolbar"><input class="grow" id="stQ" placeholder="بحث داخل التسوية: رقم التتبع، رقم الطلب، الاسم" value="${esc(q)}">
       <span class="muted small" id="stQn"></span></div><div class="table-wrap">${table}</div>`,
-    footer: `<button class="btn primary" id="stPrint">طباعة / حفظ PDF</button>
+    footer: `<button class="btn primary" id="stXlsx">تنزيل Excel</button>
       ${s.proof_path ? '<button class="btn" id="stProof">عرض صورة التحويل</button>' : ''}
       ${E && s.status !== 'paid' ? '<button class="btn" id="stPaid">تسجيل الدفع</button>' : ''}
       ${E ? `<button class="btn" id="stUpload">${s.proof_path ? 'تغيير صورة التحويل' : 'رفع صورة التحويل'}</button>` : ''}
       <span class="spacer"></span>
       ${E && s.status !== 'paid' ? '<button class="btn danger" id="stDel">إلغاء التسوية</button>' : ''}` });
   bindRowFilter($('#stQ', m.el), '#modals .stRow', $('#stQn', m.el));
+  bindOrderLinks(m.el, id => (orders || []).find(x => x.id === id), () => refresh());
   const refresh = async () => {
     m.close(); await reload();
     const { data: s2 } = await sb.from('settlements').select('*').eq('id', s.id).maybeSingle();
@@ -2067,11 +2108,7 @@ async function openSettlement(s, reload, q = '') {
     const o = (orders || []).find(x => x.id === a.dataset.oid);
     if (o) openOrder(o, refresh);
   });
-  $('#stPrint', m.el).onclick = () => {
-    $('#printArea').innerHTML = head + table; $$('#printArea .qpcol').forEach(x => x.remove()); document.body.classList.add('printing');
-    window.print();
-    setTimeout(() => { document.body.classList.remove('printing'); $('#printArea').innerHTML = ''; }, 300);
-  };
+  $('#stXlsx', m.el).onclick = e => busy(e.currentTarget, () => exportSettlementXlsx(s, orders || [], client).catch(fail));
   if ($('#stProof', m.el)) $('#stProof', m.el).onclick = () => showProof(s);
   if ($('#qpAdoptBtn', m.el)) $('#qpAdoptBtn', m.el).onclick = e => busy(e.currentTarget, async () => {
     const { error } = await sb.rpc('qp_adopt_amount', { p_order_ids: qb.diffIds });
@@ -2707,10 +2744,11 @@ function openQpUpload(done) {
     }
     $('#qpPrev', m.el).innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>الملف</th><th>النتيجة</th></tr></thead><tbody>
       ${res.map(r => `<tr><td class="small">${esc(r.f.name)}</td><td>${r.error ? `<span class="err-txt">${esc(errMsg(r.error))}</span>`
-        : r.data.ok ? `<span class="ok-txt">✓</span> ${L(`فاتورة رقم ${r.data.id}: ${r.data.lines} شحنة، منها ${r.data.matched} مسجّلة في النظام${r.data.duplicates ? ` — تم تجاهل ${r.data.duplicates} سطر مرفوع من قبل` : ''}`,
+        : r.data.ok ? `<span class="ok-txt">✓</span> <a href="#" class="qpOpenInv" data-id="${r.data.id}">${L('فتح الفاتورة', 'Open invoice')}</a> — ${L(`فاتورة رقم ${r.data.id}: ${r.data.lines} شحنة، منها ${r.data.matched} مسجّلة في النظام${r.data.duplicates ? ` — تم تجاهل ${r.data.duplicates} سطر مرفوع من قبل` : ''}`,
           `Invoice ${r.data.id}: ${r.data.lines} shipments, ${r.data.matched} in the system${r.data.duplicates ? ` — ${r.data.duplicates} duplicate line(s) skipped` : ''}`)}`
         : `<span class="err-txt">${esc(tr(r.data.msg))}</span>`}</td></tr>`).join('')}</tbody></table></div>`;
     $('#qpGo', m.el).remove();
+    $$('.qpOpenInv', m.el).forEach(a => a.onclick = ev => { ev.preventDefault(); m.close(); openQpInvoice(+a.dataset.id, done); });
     done && done();
   });
 }
@@ -2742,7 +2780,13 @@ async function openQpInvoice(id, reload) {
       <div><span class="muted small">إجمالي المحصّل</span><b>${egp(inv.total_amount)}</b></div>
       <div><span class="muted small">رسوم شركة الشحن</span><b>${egp(inv.total_fees)}</b></div>
       <div><span class="muted small">الصافي المستحق من شركة الشحن</span><b>${egp(inv.total_cod)}</b></div></div>
-    ${diffIds.length ? `<div class="alert">يوجد ${diffIds.length} طلب المبلغ المحصّل فيه عند شركة الشحن مختلف عن المسجّل في النظام.</div>` : ''}
+    ${(() => { const outN = lines.filter(l => !l.order_id).length, matchedN = lines.length - outN;
+      const f = (k, n, t) => n ? `<a href="#" class="qvJump" data-f="${k}">${n} ${t}</a>` : `0 ${t}`;
+      const diffs = diffIds.map(oid => { const o = orders[oid]; const d = Math.round((cmp[oid].qp - +o.collected_amount) * 100) / 100;
+        return orderLink(o, ` <span class="small ltr">(${d > 0 ? '+' : ''}${money(d)})</span>`); });
+      return `<div class="${diffIds.length ? 'alert' : outN ? 'alert info' : 'alert ok'} small"><b>${L('المطابقة:', 'Matching:')}</b>
+        ${f('matched', matchedN, L('مسجّلة في النظام', 'in the system'))}، ${f('diff', diffIds.length, L('فيها فرق في المبلغ', 'with amount difference'))}، ${f('out', outN, L('غير مسجّلة في النظام', 'not in the system'))}.
+        ${diffs.length ? `<div class="olinks-row"><span>${L('الطلبات اللي فيها فرق (الفرق = شركة الشحن − المسجّل عندنا):', 'Orders with difference (courier − ours):')}</span><span class="olinks">${diffs.join('')}</span></div>` : ''}</div>`; })()}
     ${Object.keys(brands).length ? `<div class="section-title">شحنات غير مسجّلة في النظام (حسب البراند)</div><div class="table-wrap"><table class="t">
       <thead><tr><th>البراند</th><th>الشحنات</th><th>المحصّل</th><th>الرسوم</th><th>الصافي</th>${regE ? '<th></th>' : ''}</tr></thead><tbody>
       ${Object.entries(brands).sort((a, b) => b[1].n - a[1].n).map(([k, b]) => `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td>${amt(b.t)}</td><td>${amt(b.f)}</td><td>${signed(b.c)}</td>
@@ -2772,6 +2816,9 @@ async function openQpInvoice(id, reload) {
     $('#qvN', m.el).textContent = (k || t) ? `${n} نتيجة` : '';
   };
   $('#qvF', m.el).onchange = filt; $('#qvQ', m.el).oninput = filt;
+  // الضغط على رقم في سطر المطابقة يفلتر جدول الشحنات وينزل له
+  $$('.qvJump', m.el).forEach(a => a.onclick = ev => { ev.preventDefault(); $('#qvF', m.el).value = a.dataset.f; $('#qvQ', m.el).value = ''; filt();
+    $('#qvF', m.el).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   const refresh = () => { m.close(); reload && reload(); openQpInvoice(id, reload); };
   // تسجيل الشحنات غير المسجّلة كطلبات (من بيانات الفاتورة: الاسم، المحافظة، المبلغ، السيريال، البراند ورقم طلبه)
   const regOpen = brand => {
@@ -2788,6 +2835,7 @@ async function openQpInvoice(id, reload) {
       fileName: `qp-invoice-${inv.id}${b ? '-' + b.replace(/[^\w\u0600-\u06FF-]+/g, '_') : ''}.xlsx`, done: refresh });
   };
   $$('.qvReg', m.el).forEach(btn => btn.onclick = () => regOpen(btn.dataset.b));
+  bindOrderLinks(m.el, null, refresh);
   if ($('#qvRegAll', m.el)) $('#qvRegAll', m.el).onclick = () => regOpen(null);
   $$('.olink', m.el).forEach(a => a.onclick = async ev => {
     ev.preventDefault();
@@ -2856,14 +2904,28 @@ const qpCell = (o, cmp) => {
     : d ? `${amt(cmp[o.id].qp)} <span class="small">(${signed(d)})</span>` : `<span class="ok-txt" title="مطابق">✓</span>`}</td>`;
 };
 const qpHead = cmp => cmp ? '<th class="qpcol" title="المحصّل حسب فواتير شركة الشحن">شركة الشحن</th>' : '';
+// لينك لطلب (يفتح الطلب بالضغط عليه — اربطه بـ bindOrderLinks)
+const orderLink = (o, extra = '') => `<a href="#" class="olink-q" data-oid="${o.id}"><span class="ltr">#${o.order_no}</span>${extra}</a>`;
+function bindOrderLinks(root, findOrder, onDone) {
+  $$('.olink-q', root).forEach(a => a.onclick = async ev => {
+    ev.preventDefault();
+    let o = findOrder ? findOrder(a.dataset.oid) : null;
+    if (!o) { const { data } = await sb.from('orders').select('*').eq('id', a.dataset.oid).maybeSingle(); o = data; }
+    if (o) openOrder(o, onDone);
+  });
+}
 function qpBlock(orders, cmp) {
   if (!cmp) return { html: '', diffIds: [] };
-  let ok = 0, miss = 0, sum = 0; const diffIds = [];
-  orders.forEach(o => { const d = qpDiff(o, cmp); if (d === null) miss++; else if (d) { diffIds.push(o.id); sum += d; } else ok++; });
-  const cls = diffIds.length ? 'alert' : miss ? 'alert info' : 'alert ok';
+  let ok = 0, sum = 0; const diffIds = [], diffs = [], missing = [];
+  orders.forEach(o => { const d = qpDiff(o, cmp); if (d === null) missing.push(o); else if (d) { diffIds.push(o.id); diffs.push([o, d]); sum += d; } else ok++; });
+  const cls = diffIds.length ? 'alert' : missing.length ? 'alert info' : 'alert ok';
+  const links = list => `<span class="olinks">${list.join('')}</span>`;
   return { diffIds, html: `<div class="${cls} small qp-block"><b>مقارنة مع فواتير شركة الشحن:</b>
-    ${ok} مطابق، ${diffIds.length ? `<b>${diffIds.length} فيه فرق (إجمالي ${money(sum)} ج)</b>، ` : ''}${miss} لم يظهر في الفواتير المرفوعة بعد.
-    ${diffIds.length && can('orders_finance') ? '<button class="btn sm" id="qpAdoptBtn" style="margin-inline-start:8px">اعتماد مبالغ شركة الشحن</button>' : ''}</div>` };
+    ${ok} مطابق، ${diffIds.length ? `<b>${diffIds.length} فيه فرق (إجمالي ${money(sum)} ج)</b>، ` : ''}${missing.length} لم يظهر في الفواتير المرفوعة بعد.
+    ${diffIds.length && can('orders_finance') ? '<button class="btn sm" id="qpAdoptBtn" style="margin-inline-start:8px">اعتماد مبالغ شركة الشحن</button>' : ''}
+    ${diffs.length ? `<div class="olinks-row"><span>${L('فيها فرق:', 'With difference:')}</span>${links(diffs.map(([o, d]) => orderLink(o, ` <span class="small ltr">(${d > 0 ? '+' : ''}${money(d)})</span>`)))}</div>` : ''}
+    ${missing.length ? `<details class="olinks-row"><summary>${L(`عرض الطلبات اللي لم تظهر في الفواتير (${missing.length})`, `Show orders not in invoices yet (${missing.length})`)}</summary>${links(missing.map(o => orderLink(o)))}</details>` : ''}
+    </div>` };
 }
 
 // =====================================================================
