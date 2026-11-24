@@ -1956,6 +1956,7 @@ function newSettlement() {
       if (error) return fail(error);
       toast('تم اعتماد مبالغ شركة الشحن', 'ok'); $('#nsClient', m.el).dispatchEvent(new Event('change'));
     });
+    bindOrderLinks($('#nsBody', m.el), id => rows.find(x => x.id === id), () => $('#nsClient', m.el).dispatchEvent(new Event('change')));
     $$('.nsSel', m.el).forEach(c => c.onchange = recalc);
     // «تحديد الكل» يطبَّق على الصفوف الظاهرة فقط (بعد البحث)
     $('#nsAll', m.el).onchange = ev => { $$('.nsRow', m.el).filter(tr => tr.style.display !== 'none').forEach(tr => $('.nsSel', tr).checked = ev.target.checked); recalc(); };
@@ -2029,8 +2030,7 @@ async function exportSettlementXlsx(s, orders, client) {
     ['إجمالي المحصّل', n(s.total_collected)],
     ['رسوم الشحن', sum(del, o => o.shipping_fee)], ['رسوم المرتجعات', sum(ret, o => o.return_fee)], ['رسوم التجهيز والتغليف', sum(orders, o => o.fulfillment_fee)],
     ['إجمالي التكلفة', n(s.total_fees)], ['الصافي المستحق لكم', n(s.net_amount)],
-    ...(s.notes ? [[], ['ملاحظات', s.notes]] : []), [],
-    ['تفاصيل كل طلب في ورقة «الطلبات» — استخدم فلتر عمود «البراند» لفصل حسابات كل براند.'],
+    ...(s.notes ? [[], ['ملاحظات', s.notes]] : []),
   ];
   const cols = [
     ['رقم الطلب', o => o.order_no], ['رقم الطلب لديكم', o => o.client_ref || ''], ['البراند', o => o.brand || ''],
@@ -2094,6 +2094,7 @@ async function openSettlement(s, reload, q = '') {
       <span class="spacer"></span>
       ${E && s.status !== 'paid' ? '<button class="btn danger" id="stDel">إلغاء التسوية</button>' : ''}` });
   bindRowFilter($('#stQ', m.el), '#modals .stRow', $('#stQn', m.el));
+  bindOrderLinks(m.el, id => (orders || []).find(x => x.id === id), () => refresh());
   const refresh = async () => {
     m.close(); await reload();
     const { data: s2 } = await sb.from('settlements').select('*').eq('id', s.id).maybeSingle();
@@ -2741,10 +2742,11 @@ function openQpUpload(done) {
     }
     $('#qpPrev', m.el).innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>الملف</th><th>النتيجة</th></tr></thead><tbody>
       ${res.map(r => `<tr><td class="small">${esc(r.f.name)}</td><td>${r.error ? `<span class="err-txt">${esc(errMsg(r.error))}</span>`
-        : r.data.ok ? `<span class="ok-txt">✓</span> ${L(`فاتورة رقم ${r.data.id}: ${r.data.lines} شحنة، منها ${r.data.matched} مسجّلة في النظام${r.data.duplicates ? ` — تم تجاهل ${r.data.duplicates} سطر مرفوع من قبل` : ''}`,
+        : r.data.ok ? `<span class="ok-txt">✓</span> <a href="#" class="qpOpenInv" data-id="${r.data.id}">${L('فتح الفاتورة', 'Open invoice')}</a> — ${L(`فاتورة رقم ${r.data.id}: ${r.data.lines} شحنة، منها ${r.data.matched} مسجّلة في النظام${r.data.duplicates ? ` — تم تجاهل ${r.data.duplicates} سطر مرفوع من قبل` : ''}`,
           `Invoice ${r.data.id}: ${r.data.lines} shipments, ${r.data.matched} in the system${r.data.duplicates ? ` — ${r.data.duplicates} duplicate line(s) skipped` : ''}`)}`
         : `<span class="err-txt">${esc(tr(r.data.msg))}</span>`}</td></tr>`).join('')}</tbody></table></div>`;
     $('#qpGo', m.el).remove();
+    $$('.qpOpenInv', m.el).forEach(a => a.onclick = ev => { ev.preventDefault(); m.close(); openQpInvoice(+a.dataset.id, done); });
     done && done();
   });
 }
@@ -2776,7 +2778,13 @@ async function openQpInvoice(id, reload) {
       <div><span class="muted small">إجمالي المحصّل</span><b>${egp(inv.total_amount)}</b></div>
       <div><span class="muted small">رسوم شركة الشحن</span><b>${egp(inv.total_fees)}</b></div>
       <div><span class="muted small">الصافي المستحق من شركة الشحن</span><b>${egp(inv.total_cod)}</b></div></div>
-    ${diffIds.length ? `<div class="alert">يوجد ${diffIds.length} طلب المبلغ المحصّل فيه عند شركة الشحن مختلف عن المسجّل في النظام.</div>` : ''}
+    ${(() => { const outN = lines.filter(l => !l.order_id).length, matchedN = lines.length - outN;
+      const f = (k, n, t) => n ? `<a href="#" class="qvJump" data-f="${k}">${n} ${t}</a>` : `0 ${t}`;
+      const diffs = diffIds.map(oid => { const o = orders[oid]; const d = Math.round((cmp[oid].qp - +o.collected_amount) * 100) / 100;
+        return orderLink(o, ` <span class="small ltr">(${d > 0 ? '+' : ''}${money(d)})</span>`); });
+      return `<div class="${diffIds.length ? 'alert' : outN ? 'alert info' : 'alert ok'} small"><b>${L('المطابقة:', 'Matching:')}</b>
+        ${f('matched', matchedN, L('مسجّلة في النظام', 'in the system'))}، ${f('diff', diffIds.length, L('فيها فرق في المبلغ', 'with amount difference'))}، ${f('out', outN, L('غير مسجّلة في النظام', 'not in the system'))}.
+        ${diffs.length ? `<div class="olinks-row"><span>${L('الطلبات اللي فيها فرق (الفرق = شركة الشحن − المسجّل عندنا):', 'Orders with difference (courier − ours):')}</span><span class="olinks">${diffs.join('')}</span></div>` : ''}</div>`; })()}
     ${Object.keys(brands).length ? `<div class="section-title">شحنات غير مسجّلة في النظام (حسب البراند)</div><div class="table-wrap"><table class="t">
       <thead><tr><th>البراند</th><th>الشحنات</th><th>المحصّل</th><th>الرسوم</th><th>الصافي</th>${regE ? '<th></th>' : ''}</tr></thead><tbody>
       ${Object.entries(brands).sort((a, b) => b[1].n - a[1].n).map(([k, b]) => `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td>${amt(b.t)}</td><td>${amt(b.f)}</td><td>${signed(b.c)}</td>
@@ -2806,6 +2814,9 @@ async function openQpInvoice(id, reload) {
     $('#qvN', m.el).textContent = (k || t) ? `${n} نتيجة` : '';
   };
   $('#qvF', m.el).onchange = filt; $('#qvQ', m.el).oninput = filt;
+  // الضغط على رقم في سطر المطابقة يفلتر جدول الشحنات وينزل له
+  $$('.qvJump', m.el).forEach(a => a.onclick = ev => { ev.preventDefault(); $('#qvF', m.el).value = a.dataset.f; $('#qvQ', m.el).value = ''; filt();
+    $('#qvF', m.el).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   const refresh = () => { m.close(); reload && reload(); openQpInvoice(id, reload); };
   // تسجيل الشحنات غير المسجّلة كطلبات (من بيانات الفاتورة: الاسم، المحافظة، المبلغ، السيريال، البراند ورقم طلبه)
   const regOpen = brand => {
@@ -2822,6 +2833,7 @@ async function openQpInvoice(id, reload) {
       fileName: `qp-invoice-${inv.id}${b ? '-' + b.replace(/[^\w\u0600-\u06FF-]+/g, '_') : ''}.xlsx`, done: refresh });
   };
   $$('.qvReg', m.el).forEach(btn => btn.onclick = () => regOpen(btn.dataset.b));
+  bindOrderLinks(m.el, null, refresh);
   if ($('#qvRegAll', m.el)) $('#qvRegAll', m.el).onclick = () => regOpen(null);
   $$('.olink', m.el).forEach(a => a.onclick = async ev => {
     ev.preventDefault();
@@ -2890,14 +2902,28 @@ const qpCell = (o, cmp) => {
     : d ? `${amt(cmp[o.id].qp)} <span class="small">(${signed(d)})</span>` : `<span class="ok-txt" title="مطابق">✓</span>`}</td>`;
 };
 const qpHead = cmp => cmp ? '<th class="qpcol" title="المحصّل حسب فواتير شركة الشحن">شركة الشحن</th>' : '';
+// لينك لطلب (يفتح الطلب بالضغط عليه — اربطه بـ bindOrderLinks)
+const orderLink = (o, extra = '') => `<a href="#" class="olink-q" data-oid="${o.id}"><span class="ltr">#${o.order_no}</span>${extra}</a>`;
+function bindOrderLinks(root, findOrder, onDone) {
+  $$('.olink-q', root).forEach(a => a.onclick = async ev => {
+    ev.preventDefault();
+    let o = findOrder ? findOrder(a.dataset.oid) : null;
+    if (!o) { const { data } = await sb.from('orders').select('*').eq('id', a.dataset.oid).maybeSingle(); o = data; }
+    if (o) openOrder(o, onDone);
+  });
+}
 function qpBlock(orders, cmp) {
   if (!cmp) return { html: '', diffIds: [] };
-  let ok = 0, miss = 0, sum = 0; const diffIds = [];
-  orders.forEach(o => { const d = qpDiff(o, cmp); if (d === null) miss++; else if (d) { diffIds.push(o.id); sum += d; } else ok++; });
-  const cls = diffIds.length ? 'alert' : miss ? 'alert info' : 'alert ok';
+  let ok = 0, sum = 0; const diffIds = [], diffs = [], missing = [];
+  orders.forEach(o => { const d = qpDiff(o, cmp); if (d === null) missing.push(o); else if (d) { diffIds.push(o.id); diffs.push([o, d]); sum += d; } else ok++; });
+  const cls = diffIds.length ? 'alert' : missing.length ? 'alert info' : 'alert ok';
+  const links = list => `<span class="olinks">${list.join('')}</span>`;
   return { diffIds, html: `<div class="${cls} small qp-block"><b>مقارنة مع فواتير شركة الشحن:</b>
-    ${ok} مطابق، ${diffIds.length ? `<b>${diffIds.length} فيه فرق (إجمالي ${money(sum)} ج)</b>، ` : ''}${miss} لم يظهر في الفواتير المرفوعة بعد.
-    ${diffIds.length && can('orders_finance') ? '<button class="btn sm" id="qpAdoptBtn" style="margin-inline-start:8px">اعتماد مبالغ شركة الشحن</button>' : ''}</div>` };
+    ${ok} مطابق، ${diffIds.length ? `<b>${diffIds.length} فيه فرق (إجمالي ${money(sum)} ج)</b>، ` : ''}${missing.length} لم يظهر في الفواتير المرفوعة بعد.
+    ${diffIds.length && can('orders_finance') ? '<button class="btn sm" id="qpAdoptBtn" style="margin-inline-start:8px">اعتماد مبالغ شركة الشحن</button>' : ''}
+    ${diffs.length ? `<div class="olinks-row"><span>${L('فيها فرق:', 'With difference:')}</span>${links(diffs.map(([o, d]) => orderLink(o, ` <span class="small ltr">(${d > 0 ? '+' : ''}${money(d)})</span>`)))}</div>` : ''}
+    ${missing.length ? `<details class="olinks-row"><summary>${L(`عرض الطلبات اللي لم تظهر في الفواتير (${missing.length})`, `Show orders not in invoices yet (${missing.length})`)}</summary>${links(missing.map(o => orderLink(o)))}</details>` : ''}
+    </div>` };
 }
 
 // =====================================================================
