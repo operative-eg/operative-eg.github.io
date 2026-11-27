@@ -372,3 +372,23 @@ a.qvJump{font-weight:700}
   .crm-hbar{grid-template-columns:90px minmax(0,1fr) auto}
 }
 @media (max-width:520px){.crm-info{grid-template-columns:1fr}}
+
+/* فلتر الفترة: زراير جاهزة + من / إلى (v15.4) */
+.rng{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rng-btns{display:inline-flex;flex-wrap:wrap;gap:4px}
+.rng .btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.rng-dates{display:inline-flex;flex-wrap:wrap;gap:8px}
+
+/* المرتجعات والتسويات (v15.4 — المرحلة التانية) */
+.scanbox{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.scanbox input{font-size:16px;padding:10px 12px;min-width:260px}
+.cond-btns{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.cond-btns .btn{padding:10px 18px;font-size:15px}
+details.ns-wait{border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:12px;background:var(--surface)}
+details.ns-wait summary{cursor:pointer;font-weight:600;color:var(--primary-600)}
+.ho-sheet{padding:4px 0}
+.ho-sheet .t td,.ho-sheet .t th{font-size:12px}
+.sign-row{display:flex;justify-content:space-between;gap:24px;margin-top:28px}
+.sign-row > div{flex:1;line-height:2.2}
+.page-break{height:1px}
+@media print{.page-break{page-break-after:always;break-after:page}}
