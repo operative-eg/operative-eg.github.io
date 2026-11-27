@@ -196,6 +196,7 @@ async function tabToday() {
   };
   if ($('#tdWho')) $('#tdWho').onchange = load;
   await load();
+  if (OP.liveOn) OP.liveOn(['crm_leads', 'crm_tasks'], load, { area: '#tdLists', gap: 5000 });
 }
 
 // ---------------- العملاء المحتملون ----------------

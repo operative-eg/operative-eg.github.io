@@ -224,6 +224,21 @@ table.t{width:100%;border-collapse:collapse;font-size:13.5px}
 .proof-view{text-align:center}
 .proof-view img{max-width:100%;max-height:75vh;border-radius:8px;border:1px solid var(--border)}
 
+/* ---------- المرحلة الرابعة: أونلاين، سجل النشاط، التحديث اللحظي ---------- */
+.nowrap{white-space:nowrap}
+.pres{display:inline-block;width:9px;height:9px;border-radius:50%;background:#c3c9d6;margin-inline-end:6px;vertical-align:middle}
+.pres.on{background:var(--green);box-shadow:0 0 0 3px var(--green-50)}
+.pres.idle{background:#e0a33a;box-shadow:0 0 0 3px var(--amber-50)}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c3c9d6;margin:0 4px}
+.live-dot.on{background:var(--green);box-shadow:0 0 0 3px var(--green-50)}
+.live-pill{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:60;background:var(--primary);color:#fff;border:0;
+  border-radius:99px;padding:9px 18px;font-weight:600;box-shadow:0 4px 14px rgba(20,33,61,.25);cursor:pointer}
+.live-pill:hover{background:var(--primary-600)}
+.live-alert .btn{margin-inline-start:8px}
+.act-t tr.grp td{background:#f8f9fc;padding-top:6px;padding-bottom:6px}
+.act-t td .ev-ch{font-size:12.5px;margin-top:2px}
+@media (max-width:760px){.live-pill{bottom:84px}}
+
 /* ---------- الهيدر: الجرس واللغة ---------- */
 .tb-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tb-tools{display:inline-flex;gap:4px;align-items:center}

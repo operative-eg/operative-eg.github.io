@@ -586,14 +586,19 @@ function renderLogin(msg = '') {
     await busy(btn, async () => {
       const { data, error } = await sb.auth.signInWithPassword({ email: f.email, password: f.password });
       if (error) { $('#loginErr').textContent = errMsg(error); return; }
-      await start(data.user);
+      await start(data.user, 'login');
     });
   };
 }
 
-async function logout() { clearInterval(bellTimer); await sb.auth.signOut(); S.user = null; location.hash = ''; renderLogin(); }
+async function logout() {
+  clearInterval(bellTimer); stopPresence();
+  // تسجيل الخروج في سجل النشاط (من غير ما نستنى أكتر من ثانيتين لو النت بطيء)
+  if (S.isAdmin && !PRES.off) await Promise.race([sb.rpc('staff_ping', { p_state: 'active', p_page: null, p_device: null, p_event: 'logout' }), sleep(2000)]).catch(() => {});
+  liveStop(); S.user = null; await sb.auth.signOut(); location.hash = ''; renderLogin();
+}
 
-async function start(user) {
+async function start(user, ev) {
   S.user = user;
   const { data: p, error } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
   if (error) return renderLogin(errMsg(error));
@@ -618,6 +623,7 @@ async function start(user) {
     S.myClient = data; S.clients = data ? [data] : [];
   }
   renderShell(); route();
+  startPresence(ev); liveStart();
 }
 
 async function loadClients() {
@@ -647,13 +653,13 @@ function renderShell() {
     </aside>
     <div class="main"><div class="topbar"><div class="tb-title"><h1 id="pageTitle"></h1>
         <span class="tb-tools">${S.isAdmin ? `<button class="btn sm ghost bell" id="bellBtn" title="${L('الإشعارات', 'Notifications')}">${ICON.bell}<span class="bell-n" id="bellN" style="display:none"></span></button>` : ''}
-        ${langButton()}</span></div>
+        <span class="live-dot" id="liveDot"></span>${langButton()}</span></div>
       <div id="pageActions" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
     <section class="view" id="view"></section></div></div>`;
   $('#logoutBtn').onclick = logout;
   bindLangButton();
   if ($('#bellBtn')) $('#bellBtn').onclick = openNotifications;
-  startBell();
+  startBell(); liveDot();
 }
 
 function route() {
@@ -667,6 +673,8 @@ function route() {
     return;
   }
   if (!nav.some(([k]) => k === page)) page = nav[0][0];
+  LIVE.view = null; livePill(false);   // الشاشة الجديدة بتسجّل اللي يهمها من التحديث اللحظي
+  if (PRES.timer && Date.now() - PRES.lastPing > 5000) ping();
   $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.k === page));
   $('#view').innerHTML = '<div class="empty">جارٍ التحميل...</div>';
   ({ dashboard: viewDashboard, orders: viewOrders, returns: viewReturns, clients: viewClients, settlements: viewSettlements, accounting: viewAccounting, crm: viewCrm, staff: viewStaff })[page]();
@@ -719,6 +727,7 @@ async function viewDashboard() {
   bindRange('dRange', load);
   if (S.isAdmin) $('#dClient').onchange = load;
   await load();
+  liveOn(['orders', 'settlements'], load, { area: '#dCards', gap: 15000 });
 
   if (S.isAdmin) {
     const { data, error } = await sb.rpc('clients_summary');
@@ -980,6 +989,8 @@ async function viewOrders() {
   bindRange('oRange', (f, t) => { OF.from = f; OF.to = t; OF.page = 0; loadOrders(); });
   $('#oDf').onchange = e => { OF.df = e.target.value; OF.page = 0; if (OF.from || OF.to) loadOrders(); };
   await loadOrders();
+  // التحديد بيفضل محفوظ في selected، والبحث برّه الجدول — فإعادة التحميل آمنة دايمًا
+  liveOn(['orders'], loadOrders, { area: '#oPanel', keep: true });
 }
 
 async function loadOrders() {
@@ -1191,6 +1202,9 @@ async function exportOrders() {
     : k === 'allow_open' ? tr(o.allow_open ? 'نعم' : 'لا') : k === 'created_at' || k === 'closed_at' ? dtt(o[k]) : k === 'governorate' ? tr(o.governorate) : o[k];
   const head = cols.map(c => tr(c[1]));
   const name = `orders-${isoDay()}`;
+  // في سجل النشاط: مين صدّر بيانات المستلمين (بالأرقام) وبأنهي فلتر
+  logExport('orders', { rows: data.length, q: OF.q || undefined, status: OF.status || undefined,
+    client: OF.client ? clientName(OF.client) : undefined, from: OF.from || undefined, to: OF.to || undefined });
   try {
     // ملف Excel حقيقي: الهاتف ورقم التتبع نصوص (CSV كان بيضيّع الصفر اللي في أول رقم الهاتف لما يتفتح في Excel)
     await loadXLSX();
@@ -1257,6 +1271,30 @@ function renderEvents(list) {
     return `<li class="ev"><div class="ev-h">${head}${who ? `<span class="ev-who ${e.actor_type === 'bot' ? 'bot' : ''}">${esc(who)}</span>` : ''}
       <span class="muted num small">${dtt(e.created_at)}</span></div>${lines}</li>`;
   }).join('');
+}
+
+// نافذة الطلب مفتوحة وحد تاني عدّل نفس الطلب: تنبيه جوه النافذة بدل ما الحفظ يكتب فوق تعديله من غير ما يعرف
+const LIVE_ORDER_KEYS = [...Object.keys(FIELD_LABELS), 'kind', 'collection_confirmed_at', 'return_received_at', 'return_condition', 'return_handover_id'];
+async function orderLiveCheck(sig, o, m, onDone) {
+  if (sig.topic !== 'orders' || (sig.clients && !sig.clients.includes(o.client_id)) || $('#oLive', m.el)) return;
+  const { data: x, error } = await sb.from('orders').select('*').eq('id', o.id).maybeSingle();
+  if (error || !m.el.isConnected || $('#oLive', m.el)) return;
+  if (x && !LIVE_ORDER_KEYS.some(k => k in o && String(x[k] ?? '') !== String(o[k] ?? ''))) return;
+  let who = '';
+  if (x) {
+    const { data: ev } = await sb.from('order_events').select('actor_name, actor_type').eq('order_id', o.id).order('id', { ascending: false }).limit(1);
+    if (ev && ev[0]) who = actorLabel(ev[0]);
+  }
+  if (!m.el.isConnected || $('#oLive', m.el)) return;
+  const box = document.createElement('div');
+  box.id = 'oLive'; box.className = 'alert small live-alert';
+  box.innerHTML = x ? `<b>${L('الطلب ده اتعدّل دلوقتي', 'This order was just changed')}${who ? ` — ${esc(who)}` : ''}.</b>
+      ${L('لو حفظت دلوقتي هتكتب فوق التعديل ده.', 'Saving now would overwrite that change.')}
+      <button type="button" class="btn sm">${L('عرض آخر نسخة', 'Show the latest version')}</button>`
+    : `<b>${L('الطلب ده اتحذف.', 'This order was deleted.')}</b>`;
+  $('.modal-b', m.el).prepend(box);
+  const b = $('button', box);
+  if (b) b.onclick = () => { m.close(); openOrder(x, onDone); };
 }
 
 // ---------- نافذة الطلب ----------
@@ -1340,6 +1378,7 @@ async function openOrder(o, onDone) {
     ${!isNew && !A && o.status === 'new' ? '<button class="btn danger" id="oCancel">إلغاء الطلب</button>' : ''}
     ${!isNew && A && can('orders_delete') && !o.settlement_id ? '<button class="btn danger" id="oDelete">حذف</button>' : ''}`;
   const m = modal({ title: isNew ? 'طلب جديد' : `${L('الطلب', 'Order')} ${orderNo(o)}${A ? ' — ' + esc(clientName(o.client_id)) : ''}`, body, footer, wide: true });
+  if (!isNew) liveSub(m.el, sig => orderLiveCheck(sig, o, m, onDone));
 
   if (!isNew) {
     sb.from('order_events').select('*').eq('order_id', o.id).order('created_at', { ascending: false }).order('id', { ascending: false }).then(({ data }) => {
@@ -1523,6 +1562,132 @@ function startBell() {
   if (!S.isAdmin) return;
   refreshBell(); bellTimer = setInterval(refreshBell, 60000);
 }
+
+// =====================================================================
+//  الحضور (أونلاين / آخر ظهور) + التحديث اللحظي — migration-023
+// =====================================================================
+// نبضة كل 45 ثانية للموظف ومدير النظام: الصفحة اللي فاتحها، وهل قدام الشاشة ولا لأ
+const PRES = { timer: null, off: false, lastInput: Date.now(), lastPing: 0 };
+['pointerdown', 'keydown', 'mousemove', 'touchstart', 'wheel'].forEach(ev =>
+  window.addEventListener(ev, () => { PRES.lastInput = Date.now(); }, { passive: true, capture: true }));
+const curPage = () => (location.hash.match(/^#\/(\w+)/) || [])[1] || '';
+const deviceKind = () => /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
+const noMig = e => /Could not find the function|does not exist|schema cache/i.test((e && e.message) || '');
+async function ping(event) {
+  if (!S.user || !S.isAdmin || PRES.off) return;
+  PRES.lastPing = Date.now();
+  const idle = document.hidden || Date.now() - PRES.lastInput > 5 * 60e3;
+  const { data, error } = await sb.rpc('staff_ping', { p_state: idle ? 'idle' : 'active', p_page: curPage(), p_device: deviceKind(), p_event: event || null });
+  if (error) { if (noMig(error)) PRES.off = true; return; }
+  if (!data || !S.isStaff || !S.user) return;
+  if (data.active === false) {
+    // الموظف اتوقف من صفحة الموظفين: يخرج على طول من غير ما يستنى يعمل ريفرش
+    stopPresence(); liveStop(); clearInterval(bellTimer); S.user = null;
+    await sb.auth.signOut();
+    return renderLogin('هذا الحساب موقوف، يُرجى التواصل مع إدارة Operative');
+  }
+  // الصلاحيات اتغيّرت: القايمة والصفحات تتحدّث لوحدها
+  if (Array.isArray(data.permissions) && data.permissions.slice().sort().join() !== [...S.perms].sort().join()) {
+    S.perms = new Set(data.permissions);
+    renderShell(); route();
+    toast(L('صلاحياتك اتغيّرت — الصفحات اتحدّثت', 'Your permissions changed — pages were updated'));
+  }
+}
+function startPresence(event) {
+  stopPresence();
+  if (!S.isAdmin) return;
+  ping(event);
+  PRES.timer = setInterval(() => ping(), 45000);
+}
+function stopPresence() { clearInterval(PRES.timer); PRES.timer = null; }
+document.addEventListener('visibilitychange', () => {
+  if (!S.user) return;
+  if (Date.now() - PRES.lastPing > 5000) ping();   // في الخلفية ← «مش على الشاشة»، ورجع ← أونلاين
+  if (!document.hidden) liveWake();
+});
+
+// التحديث اللحظي: كل عملية في قاعدة البيانات بتبعت «إشارة» (الجدول اللي اتغيّر)، والشاشة المفتوحة بتعيد تحميل بياناتها.
+// الشاشة بتسجّل نفسها بـ liveOn(الجداول، دالة التحميل، { area: الجزء اللي بيتعاد رسمه }).
+// لو الشخص بيكتب في خانة أو محدد صفوف جوه الجزء ده، ما بنلمسش حاجة ويظهر زرار «فيه تحديثات جديدة».
+const LIVE = { ch: null, ok: false, view: null, timer: null, subs: new Set(), clientsTimer: null };
+async function liveStart() {
+  liveStop();
+  if (!sb.channel || !S.user) return;
+  // قبل migration-023 الجدول مش موجود: ما نفتحش اتصال هيفضل يفشل
+  const { error } = await sb.from('live_signals').select('id', { head: true }).limit(1);
+  if (error || !S.user) return;
+  const ch = sb.channel('op-live');
+  ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_signals' }, p => liveSignal(p.new || {}));
+  if (S.isAdmin) ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${S.user.id}` }, p => liveNotif(p.new || {}));
+  ch.subscribe(st => { LIVE.ok = st === 'SUBSCRIBED'; liveDot(); });
+  LIVE.ch = ch;
+}
+function liveStop() {
+  if (LIVE.ch) { try { sb.removeChannel(LIVE.ch); } catch (e) { } LIVE.ch = null; }
+  LIVE.ok = false; LIVE.view = null; LIVE.subs.clear(); livePill(false); liveDot();
+}
+function liveDot() {
+  const d = $('#liveDot'); if (!d) return;
+  d.classList.toggle('on', LIVE.ok);
+  d.title = LIVE.ok ? L('التحديث المباشر شغال — أي تعديل بيظهر من غير ريفرش', 'Live updates on — changes appear without refreshing')
+    : L('التحديث المباشر مش متصل', 'Live updates not connected');
+}
+function liveOn(topics, fn, o = {}) {
+  // شاشة قديمة خلصت تحميلها بعد ما الشخص راح لصفحة تانية: الجزء بتاعها مش موجود، فما تسجّلش فوق الجديدة
+  if (!$(o.area || '#view')) return;
+  LIVE.view ={ topics, fn, hash: location.hash, area: o.area || '#view', keep: !!o.keep, gap: o.gap || 0, last: Date.now(), dirty: false, busy: false };
+}
+// نافذة مفتوحة (زي نافذة الطلب) عايزة تعرف بالتغيير — بتتشال لوحدها لما النافذة تتقفل
+function liveSub(el, fn) {
+  const w = sig => { if (!el.isConnected) { LIVE.subs.delete(w); return; } fn(sig); };
+  LIVE.subs.add(w);
+}
+function liveSignal(sig) {
+  if (!sig.topic || !S.user) return;
+  LIVE.subs.forEach(f => { try { f(sig); } catch (e) { console.error(e); } });
+  if (sig.topic === 'clients' && S.isAdmin) { clearTimeout(LIVE.clientsTimer); LIVE.clientsTimer = setTimeout(() => loadClients(), 1500); }
+  const v = LIVE.view;
+  if (!v || !v.topics.includes(sig.topic)) return;
+  v.dirty = true;
+  clearTimeout(LIVE.timer); LIVE.timer = setTimeout(liveRun, 1200);
+}
+function liveSafe(v) {
+  if (v.keep) return true;
+  const area = $(v.area); if (!area) return false;
+  const a = document.activeElement;
+  if (a && area.contains(a) && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'
+      || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(a.type)))) return false;
+  return !$$('input[type=checkbox]:checked', area).length;
+}
+async function liveRun(force) {
+  const v = LIVE.view;
+  if (!v || !v.dirty || v.hash !== location.hash || !S.user) return;
+  if (document.hidden && !force) return;                  // بتكمل لما الصفحة ترجع قدامه
+  if (!force && !liveSafe(v)) { livePill(true); return; }
+  const wait = v.busy ? 800 : v.gap - (Date.now() - v.last);
+  if (!force && wait > 0) { clearTimeout(LIVE.timer); LIVE.timer = setTimeout(liveRun, wait); return; }
+  v.dirty = false; v.busy = true; v.last = Date.now(); livePill(false);
+  const y = window.scrollY;
+  try { await v.fn(); } catch (e) { console.error(e); } finally { v.busy = false; }
+  if (LIVE.view === v && Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
+}
+function liveWake() { if (LIVE.view && LIVE.view.dirty) liveRun(); }
+function livePill(show) {
+  let p = $('#livePill');
+  if (!show) { if (p) p.remove(); return; }
+  if (p) return;
+  p = document.createElement('button'); p.id = 'livePill'; p.type = 'button'; p.className = 'live-pill';
+  p.textContent = L('فيه تحديثات جديدة — اضغط للعرض', 'New updates — click to show');
+  p.onclick = () => liveRun(true);
+  document.body.appendChild(p);
+}
+document.addEventListener('focusout', () => setTimeout(liveWake, 300));
+document.addEventListener('change', e => { if (e.target && e.target.type === 'checkbox') setTimeout(liveWake, 300); });
+function liveNotif(n) {
+  refreshBell();
+  if (n && n.kind) toast(`🔔 ${notifText(n)}`);
+}
+const logExport = (what, details) => { if (S.isAdmin && !PRES.off) sb.rpc('activity_log_export', { p_what: what, p_details: details || null }).then(() => {}, () => {}); };
 function crmNotifText(n) {
   const who = n.actor_name || '';
   switch (n.kind) {
@@ -1897,6 +2062,8 @@ async function viewClients() {
   $('#view').innerHTML = `${TABS.length > 1 ? `<div class="tabs">${TABS.map(([k, l]) => `<a href="#/clients/${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div>` : ''}
     <div id="cBodyX"><div class="empty">جارٍ التحميل...</div></div>`;
   try { await ({ list: clientsList, packages: packagesView, commission: commissionView })[tab](); } catch (e) { fail(e); }
+  if (tab === 'list') liveOn(['clients', 'price_packages'], clientsList, { area: '#cBodyX' });
+  if (tab === 'packages') liveOn(['price_packages', 'clients'], packagesView, { area: '#cBodyX' });
 }
 
 async function clientsList() {
@@ -2042,6 +2209,7 @@ async function commissionView() {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, L('العمولات', 'Commission'));
     if (!EN) wb.Workbook = { Views: [{ RTL: true }] };
     XLSX.writeFile(wb, `commission-${rangeVal('cmR').join('_')}.xlsx`);
+    logExport('commission', { from: rangeVal('cmR')[0], to: rangeVal('cmR')[1], rows: rows.length });
   });
   await load();
 }
@@ -2316,6 +2484,7 @@ async function viewSettlements() {
   if (S.isAdmin) $('#sClient').onchange = load;
   bindRange('sRange', load);
   await load();
+  liveOn(['settlements'], load, { area: '#sPanel' });
 }
 
 const orderCost = o => o.status === 'returned' ? +o.return_fee + +o.fulfillment_fee : +o.shipping_fee + +o.fulfillment_fee;
@@ -2571,6 +2740,7 @@ async function exportSettlementXlsx(s, orders, client) {
   XLSX.utils.book_append_sheet(wb, ws, 'الطلبات');
   const safe = String(client.name || 'client').replace(/[\\/:*?"<>|]/g, '').trim();
   XLSX.writeFile(wb, `تسوية-${s.settlement_no}-${safe}.xlsx`);
+  logExport('settlement', { no: s.settlement_no, client: client.name || undefined, rows: orders.length });
 }
 
 async function openSettlement(s, reload, q = '') {
@@ -2766,6 +2936,7 @@ async function accJournal() {
   }
   $('#aLog').onclick = () => openEntryLogAll(load);
   await load();
+  liveOn(['acc_entries'], load, { area: '#jList', gap: 5000 });
 }
 
 async function fetchEntry(id) {
@@ -3539,6 +3710,7 @@ async function viewReturns() {
   if ($('#rRange')) bindRange('rRange', (f, t) => { RF.from = f; RF.to = t; load(); });
   const load = () => ({ pending: returnsPending, received: returnsReceived, handovers: returnsHandovers })[tab]().catch(fail);
   await load();
+  liveOn(['orders', 'returns_handovers'], load, { area: '#rBody' });
 }
 
 // ---------- لسه ما وصلتش ----------
@@ -3806,21 +3978,247 @@ function handoverSheet(h, orders, copies = [L('نسخة العميل', 'Client c
 // =====================================================================
 async function viewStaff() {
   setTitle('الموظفين');
+  let tab = (location.hash.match(/^#\/staff\/(\w+)/) || [])[1] || 'list';
+  if (!['list', 'activity'].includes(tab)) tab = 'list';
+  $('#view').innerHTML = `<div class="tabs"><a href="#/staff/list" class="${tab === 'list' ? 'active' : ''}">${L('الموظفين', 'Staff')}</a>
+      <a href="#/staff/activity" class="${tab === 'activity' ? 'active' : ''}">${L('سجل النشاط', 'Activity log')}</a></div>
+    <div id="stBody"><div class="empty">${L('جارٍ التحميل...', 'Loading...')}</div></div>`;
+  try { await (tab === 'activity' ? staffActivity() : staffList()); } catch (e) { fail(e); }
+}
+
+// ---------- الحضور: أونلاين / مش على الشاشة / آخر ظهور ----------
+const ago = (d, now = new Date()) => {
+  const s = Math.max(0, (now - new Date(d)) / 1000), mi = Math.floor(s / 60), h = Math.floor(mi / 60), dd = Math.floor(h / 24);
+  if (mi < 1) return L('من أقل من دقيقة', 'less than a minute ago');
+  if (mi < 60) return L(`من ${mi} دقيقة`, `${mi} min ago`);
+  if (h < 24) return L(`من ${h} ساعة`, `${h} h ago`);
+  return L(`من ${dd} يوم`, `${dd} day(s) ago`);
+};
+const tm = d => dtt(d).split(' ').slice(1).join(' ');   // الوقت بس
+const dur = (a, b) => { const mi = Math.round((new Date(b) - new Date(a)) / 60000); if (!(mi >= 0)) return '';
+  const h = Math.floor(mi / 60), r = mi % 60;
+  return mi < 60 ? L(`${mi} دقيقة`, `${mi} min`) : r ? L(`${h} ساعة و${r} دقيقة`, `${h} h ${r} min`) : L(`${h} ساعة`, `${h} h`); };
+const pageName = k => { const n = NAV_ADMIN.find(x => x[0] === k); return n ? tr(n[1]) : (k || ''); };
+const deviceName = k => k === 'mobile' ? L('موبايل', 'mobile') : k === 'desktop' ? L('كمبيوتر', 'computer') : '';
+function presCell(p, now) {
+  if (!p) return `<span class="pres"></span><span class="muted small">${L('ما دخلش من وقت تشغيل السجل', 'Not seen since tracking started')}</span>`;
+  const where = [pageName(p.page), deviceName(p.device)].filter(Boolean).map(esc).join(' · ');
+  if (p.online) return `<span class="pres ${p.state === 'active' ? 'on' : 'idle'}"></span><b class="${p.state === 'active' ? 'ok-txt' : ''}">${p.state === 'active' ? L('أونلاين', 'Online') : L('مش على الشاشة', 'Away')}</b>
+      ${where ? `<span class="muted small">— ${where}</span>` : ''}<div class="muted small">${L('فاتح من', 'Since')} <span class="num">${tm(p.session_started_at)}</span> (${dur(p.session_started_at, now)})</div>`;
+  return `<span class="pres"></span>${L('آخر ظهور', 'Last seen')} ${ago(p.last_seen_at, now)}<div class="muted small num">${dtt(p.last_seen_at)}</div>`;
+}
+
+let staffTimer = null;
+async function staffList() {
+  clearTimeout(staffTimer);
   $('#pageActions').innerHTML = '<button class="btn primary" id="addStaffBtn">+ موظف جديد</button>';
   $('#addStaffBtn').onclick = () => openStaff(null);
-  const { data, error } = await sb.from('staff_members').select('*').order('created_at');
+  const [f0] = presetRange('today');
+  const [{ data, error }, pres, sum] = await Promise.all([
+    sb.from('staff_members').select('*').order('created_at'),
+    sb.rpc('staff_presence_list'),
+    sb.rpc('staff_activity_summary', { p_from: dayStart(f0).toISOString(), p_to: dayStart(f0, 1).toISOString() }),
+  ]);
   if (error) return fail(error);
+  if (!$('#stBody')) return;
+  const P = {}, SM = {};
+  (pres.data || []).forEach(p => P[p.user_id] = p);
+  (sum.data || []).forEach(s => SM[s.user_id] = s);
+  const now = pres.data && pres.data[0] ? new Date(pres.data[0].server_now) : new Date();
+  const rank = u => { const p = P[u.user_id]; return !p ? 0 : p.online ? (p.state === 'active' ? 3e13 : 2e13) + 1 : new Date(p.last_seen_at).getTime() / 1e3; };
+  const list = (data || []).slice().sort((a, b) => rank(b) - rank(a));
+  const onN = list.filter(u => P[u.user_id] && P[u.user_id].online).length;
   const label = k => (PERMS.find(p => p[0] === k) || [k, k])[1];
-  $('#view').innerHTML = `<div class="alert info small">الموظف يدخل على نفس الموقع ويرى فقط الصفحات والعمليات المسموح له بها. إعدادات الربط مع شركة الشحن، وحذف العملاء، وإدارة الموظفين متاحة لك وحدك.</div>
-    <div class="panel"><div class="table-wrap"><table class="t"><thead><tr><th>الاسم</th><th class="hide-sm">البريد</th><th>الصلاحيات</th><th>الحالة</th><th></th></tr></thead><tbody>
-    ${(data || []).map(u => `<tr data-id="${u.id}"><td><b>${esc(u.name)}</b>${u.phone ? `<div class="muted small ltr">${esc(u.phone)}</div>` : ''}</td>
-      <td class="hide-sm"><span class="ltr small">${esc(u.email)}</span></td>
-      <td class="small">${u.permissions.length ? u.permissions.map(label).map(esc).join('، ') : '<span class="muted">بدون صلاحيات</span>'}</td>
+  $('#stBody').innerHTML = `${pres.error ? `<div class="alert small">${noMig(pres.error) ? L('الأونلاين وآخر ظهور وسجل النشاط محتاجين تشغيل migration-023', 'Online status, last seen and the activity log need migration-023') : esc(errMsg(pres.error))}</div>` : ''}
+    <div class="alert info small">الموظف يدخل على نفس الموقع ويرى فقط الصفحات والعمليات المسموح له بها. إعدادات الربط مع شركة الشحن، وحذف العملاء، وإدارة الموظفين متاحة لك وحدك.</div>
+    ${pres.error ? '' : `<p class="small" style="margin:0 0 10px"><span class="pres on"></span>${L(`أونلاين دلوقتي: <b class="num">${onN}</b> من ${list.length}`, `Online now: <b class="num">${onN}</b> of ${list.length}`)}
+      <span class="muted"> · ${L('بيتحدّث كل 20 ثانية', 'refreshes every 20 seconds')}</span></p>`}
+    <div class="panel" id="stList"><div class="table-wrap"><table class="t"><thead><tr><th>الاسم</th><th>${L('الحالة الآن', 'Now')}</th>
+      <th class="hide-sm">${L('النهارده', 'Today')}</th><th class="hide-sm">الصلاحيات</th><th>${L('الحساب', 'Account')}</th><th></th></tr></thead><tbody>
+    ${list.map(u => { const s = SM[u.user_id]; return `<tr data-id="${u.id}"><td><b>${esc(u.name)}</b><div class="muted small ltr">${esc(u.email)}</div>${u.phone ? `<div class="muted small ltr">${esc(u.phone)}</div>` : ''}</td>
+      <td>${u.user_id ? presCell(P[u.user_id], now) : '<span class="muted small">—</span>'}</td>
+      <td class="hide-sm small">${s ? `${L('أول ظهور', 'First seen')} <span class="num">${tm(s.first_at)}</span><div>${L(`${s.actions} عملية`, `${s.actions} action(s)`)}</div>` : '<span class="muted">—</span>'}</td>
+      <td class="small hide-sm">${u.permissions.length ? u.permissions.map(label).map(esc).join('، ') : '<span class="muted">بدون صلاحيات</span>'}</td>
       <td>${!u.user_id ? '<span class="badge b-amber">لم يُنشأ الحساب</span>' : u.active ? '<span class="badge b-green">مفعّل</span>' : '<span class="badge b-muted">موقوف</span>'}</td>
-      <td><button class="btn sm" data-edit>تعديل</button></td></tr>`).join('')
-      || '<tr><td colspan="5" class="empty">لا يوجد موظفون بعد، اضغط "موظف جديد"</td></tr>'}
+      <td class="nowrap">${u.user_id && !pres.error ? `<button class="btn sm" data-act>${L('النشاط', 'Activity')}</button>` : ''} <button class="btn sm" data-edit>تعديل</button></td></tr>`; }).join('')
+      || '<tr><td colspan="6" class="empty">لا يوجد موظفون بعد، اضغط "موظف جديد"</td></tr>'}
     </tbody></table></div></div>`;
-  $$('#view tr[data-id]').forEach(tr => $('[data-edit]', tr).onclick = () => openStaff((data || []).find(u => u.id === tr.dataset.id)));
+  $$('#stList tr[data-id]').forEach(tr => {
+    const u = list.find(x => x.id === tr.dataset.id);
+    $('[data-edit]', tr).onclick = () => openStaff(u);
+    const a = $('[data-act]', tr); if (a) a.onclick = () => { ACT_F.u = u.user_id; location.hash = '#/staff/activity'; };
+  });
+  liveOn(['staff_members'], staffList, { area: '#stList' });
+  // الحضور مش بيتبعت لحظي (نبضة كل 45 ثانية لكل موظف) — الصفحة بتتحدّث كل 20 ثانية وهي مفتوحة
+  if (!pres.error) {
+    const tick = () => {
+      if (!$('#stList')) return;                                                  // سابت الصفحة
+      if (document.hidden || $('#modals').children.length) { staffTimer = setTimeout(tick, 5000); return; }   // نافذة مفتوحة: نستنى
+      staffList();
+    };
+    staffTimer = setTimeout(tick, 20000);
+  }
+}
+
+// ---------- سجل النشاط ----------
+const ACT_F = { u: '', cat: '', from: '', to: '' };
+const ACT_CATS = [['', 'كل الأنشطة', 'All activity'], ['session', 'الدخول والخروج', 'Sign-ins & sign-outs'], ['orders', 'الطلبات', 'Orders'],
+  ['settlements', 'التسويات', 'Settlements'], ['returns', 'المرتجعات', 'Returns'], ['clients', 'العملاء والأسعار', 'Clients & prices'],
+  ['accounting', 'الحسابات', 'Accounting'], ['crm', 'المبيعات', 'Sales'], ['export', 'التصدير', 'Exports'], ['staff', 'الموظفين', 'Staff']];
+const ACT_FIELDS = { name: ['الاسم', 'Name'], phone: ['الهاتف', 'Phone'], email: ['البريد', 'Email'], contact_name: ['المسؤول', 'Contact'],
+  login_email: ['بريد الدخول', 'Login email'], pickup_address: ['عنوان الاستلام', 'Pickup address'], active: ['مفعّل', 'Active'],
+  permissions: ['الصلاحيات', 'Permissions'], default_shipping_fee: ['الشحن الأساسي', 'Base shipping'], price: ['سعر الشحن', 'Shipping price'],
+  return_price: ['سعر المرتجع', 'Return price'], package_id: ['الباقة', 'Package'], payment_ref: ['مرجع الدفع', 'Payment ref'],
+  paid_at: ['تاريخ الدفع', 'Paid at'], proof_path: ['صورة التحويل', 'Transfer proof'], paid_account_id: ['حساب الدفع', 'Paid from'],
+  received: ['استلام التحويل', 'Transfer received'], received_date: ['تاريخ الاستلام', 'Received on'], received_amount: ['المبلغ المستلم', 'Amount received'],
+  amount_per_order: ['المبلغ لكل طلب', 'Per order'], start_date: ['من', 'From'], end_date: ['إلى', 'To'], receiver_name: ['المستلم', 'Receiver'],
+  stage_id: ['المرحلة', 'Stage'], owner_id: ['المسؤول', 'Owner'], brand_name: ['البراند', 'Brand'] };
+const actField = k => ACT_FIELDS[k] ? L(...ACT_FIELDS[k]) : fieldLabel(k);
+function actVal(k, v) {
+  if (v === null || v === undefined || v === '') return '—';
+  if (k === 'permissions' && Array.isArray(v)) return v.map(x => (PERMS.find(p => p[0] === x) || [x, x])[1]).join('، ');
+  if (typeof v === 'boolean') return v ? L('نعم', 'yes') : L('لا', 'no');
+  if (k === 'status' && STATUS[v]) return tr(STATUS[v].label);
+  if (k === 'status' && v === 'paid') return L('مدفوعة', 'paid');
+  if (k === 'status' && v === 'unpaid') return L('غير مدفوعة', 'unpaid');
+  if (typeof v === 'object') return JSON.stringify(v).slice(0, 80);
+  return FIELD_LABELS[k] ? fmtField(k, v) : String(v);
+}
+const SESS = { login: ['دخل على السيستم (بكلمة المرور)', 'Signed in (password)'], online: ['فتح السيستم', 'Opened the system'],
+  offline: ['قفل / ساب السيستم', 'Left the system'], logout: ['سجّل خروج', 'Signed out'] };
+const CRM_ACT = { created: ['أضاف عميل محتمل', 'Added a lead'], updated: ['عدّل بيانات عميل محتمل', 'Edited a lead'], stage: ['غيّر مرحلة', 'Changed the stage of'],
+  assigned: ['وزّع', 'Assigned'], shared: ['فوّض على', 'Delegated'], unshared: ['شال التفويض من', 'Removed delegation on'], converted: ['حوّل لعميل', 'Converted to a client'],
+  convert_request: ['طلب تحويل لعميل', 'Requested conversion of'], imported: ['رفع من Excel', 'Imported'], exported: ['صدّر العملاء المحتملين', 'Exported leads'],
+  contact_added: ['أضاف جهة اتصال لـ', 'Added a contact to'], contact_deleted: ['مسح جهة اتصال من', 'Removed a contact from'],
+  phone_changed: ['غيّر رقم في', 'Changed a number on'], dup_cleared: ['أكّد إنه مش مكرر', 'Cleared duplicate flag on'],
+  activity: ['سجّل نشاط', 'Logged an activity on'], reveal: ['كشف رقم', 'Revealed a number of'] };
+const ENT = { clients: ['العميل', 'client'], client_shipping_rates: ['سعر محافظة للعميل', 'governorate price for'], price_packages: ['باقة الأسعار', 'price package'],
+  price_package_rates: ['سعر محافظة في الباقة', 'governorate price in package'], client_sales_reps: ['عمولة مبيعات', 'sales commission'],
+  returns_handovers: ['كشف تسليم مرتجعات', 'returns handover sheet'], qp_invoices: ['فاتورة شركة الشحن', 'courier invoice'],
+  staff_members: ['الموظف', 'staff member'], settlements: ['التسوية', 'settlement'], orders: ['الطلب', 'order'], acc_entries: ['القيد', 'entry'] };
+const VERB = { insert: ['أضاف', 'Added'], update: ['عدّل', 'Edited'], delete: ['حذف', 'Deleted'] };
+const EXP = { orders: ['صدّر الطلبات إلى Excel', 'Exported orders to Excel'], settlement: ['نزّل كشف التسوية', 'Downloaded settlement sheet'],
+  commission: ['صدّر عمولات المبيعات', 'Exported sales commission'] };
+function actHead(r) {
+  const d = r.details || {}, ch = d.changes || {};
+  if (r.cat === 'session') {
+    const since = d.since && (r.action === 'offline' || r.action === 'logout') ? ` <span class="muted small">(${L('بعد', 'after')} ${dur(d.since, r.at)})</span>` : '';
+    const dev = d.device ? ` <span class="muted small">— ${esc(deviceName(d.device))}</span>` : '';
+    return `<span class="pres ${r.action === 'login' || r.action === 'online' ? 'on' : ''}"></span>${esc(L(...(SESS[r.action] || [r.action, r.action])))}${since}${dev}`;
+  }
+  if (r.cat === 'export') {
+    const x = EXP[r.entity] || [`تصدير ${r.entity}`, `Export ${r.entity}`];
+    return `<b>${esc(L(...x))}</b>${d.no ? ` ${L('رقم', 'no.')} ${esc(d.no)}` : ''}${d.rows != null ? ` <span class="muted small">(${L(`${d.rows} صف`, `${d.rows} row(s)`)})</span>` : ''}`;
+  }
+  if (r.cat === 'crm') {
+    const x = CRM_ACT[r.action] || [r.action, r.action];
+    const AT = { call: ['مكالمة', 'call'], whatsapp: ['واتساب', 'WhatsApp'], meeting: ['اجتماع', 'meeting'], visit: ['زيارة', 'visit'], email: ['إيميل', 'email'],
+      note: ['ملاحظة', 'note'], view: ['إظهار', 'show'], check: ['فحص رقم', 'number check'], denied: ['مرفوض — تجاوز الحد اليومي', 'denied — daily limit'] };
+    const at = k => AT[k] ? L(...AT[k]) : (k || '');
+    const extra = r.action === 'activity' ? ` <span class="muted small">(${esc(at(d.type))}${d.outcome ? ' — ' + esc(d.outcome) : ''})</span>`
+      : r.action === 'reveal' ? ` <span class="muted small">(${esc(at(d.type))})</span>` : '';
+    return `${esc(L(...x))} ${r.ref ? `<a href="#" class="olink" data-lead="${esc(r.entity_id)}"><b class="notr">${esc(r.ref)}</b></a>` : ''}${extra}`;
+  }
+  if (r.entity === 'account_requests') {
+    return `${r.action === 'request' ? L('طلب تعديل في حسابات الطلب', 'Requested an accounts change on order') : L('ردّ على طلب تعديل الطلب', 'Replied to the change request on order')}
+      <a href="#" class="olink" data-order="${esc(r.entity_id)}"><span class="ltr">${esc(r.ref)}</span></a>`;
+  }
+  if (r.entity === 'acc_entries') {
+    return `${esc(L(...VERB[r.action] || [r.action, r.action]))} ${L('القيد رقم', 'entry no.')} <b class="num">${esc(r.ref)}</b>${d.desc ? ` — ${esc(d.desc)}` : ''}`;
+  }
+  let verb = L(...(VERB[r.action] || [r.action, r.action]));
+  if (r.entity === 'settlements' && r.action === 'insert') verb = L('أنشأ', 'Created');
+  if (r.entity === 'settlements' && ch.status && ch.status[1] === 'paid') verb = L('سجّل دفع', 'Recorded payment of');
+  if (r.entity === 'qp_invoices' && r.action === 'insert') verb = L('رفع', 'Uploaded');
+  if (r.entity === 'orders' && r.action === 'update' && ch.status && Object.keys(ch).length === 1) verb = L('غيّر حالة', 'Changed the status of');
+  const ent = L(...(ENT[r.entity] || [r.entity, r.entity]));
+  const link = r.entity === 'orders' && r.action !== 'delete' ? `<a href="#" class="olink" data-order="${esc(r.entity_id)}"><span class="ltr">${esc(r.ref)}</span></a>`
+    : r.entity === 'settlements' && r.action !== 'delete' ? `<a href="#" class="olink" data-set="${esc(r.entity_id)}"><b class="num">${esc(r.ref)}</b></a>`
+    : `<b class="notr">${esc(r.ref || '')}</b>`;
+  return `${esc(verb)} ${esc(ent)} ${link}`;
+}
+function actBody(r) {
+  const d = r.details || {};
+  if (d.changes) {
+    const keys = Object.keys(d.changes).filter(k => !['qp_req', 'qp_synced_at', 'qp_sent_at'].includes(k));
+    return keys.map(k => `<div class="ev-ch">${esc(actField(k))}: <span class="muted">${esc(actVal(k, d.changes[k][0]))}</span>
+      ${L('←', '→')} <b>${esc(actVal(k, d.changes[k][1]))}</b></div>`).join('');
+  }
+  if (r.action === 'delete' && d.row) {
+    const x = d.row, bits = [x.customer_name, x.client_id ? clientName(x.client_id) : '', x.status && STATUS[x.status] ? tr(STATUS[x.status].label) : '',
+      x.cod_amount != null ? money(x.cod_amount) : '', x.qp_tracking, x.name].filter(Boolean);
+    return bits.length ? `<div class="small muted">${bits.map(esc).join(' · ')}</div>` : '';
+  }
+  if (r.entity === 'orders' && r.action === 'insert' && d.status) return `<div class="small">${badge(d.status)}</div>`;
+  if (r.cat === 'export') {
+    const f = [d.client, d.status && STATUS[d.status] ? tr(STATUS[d.status].label) : '', d.q ? `«${d.q}»` : '', d.from || d.to ? `${d.from || '…'} → ${d.to || '…'}` : ''].filter(Boolean);
+    return f.length ? `<div class="small muted">${L('الفلتر', 'Filter')}: ${f.map(esc).join(' · ')}</div>` : '';
+  }
+  if (d.body) return `<div class="small muted">${esc(d.body)}</div>`;
+  if (d.note) return `<div class="small muted">${esc(d.note)}</div>`;
+  return '';
+}
+
+async function staffActivity() {
+  clearTimeout(staffTimer);
+  if (!ACT_F.from && !ACT_F.to) [ACT_F.from, ACT_F.to] = presetRange('today');
+  const { data: staff } = await sb.from('staff_members').select('name, user_id').order('name');
+  const people = (staff || []).filter(s => s.user_id);
+  const NAME = { [S.user.id]: L('مدير النظام', 'Administrator') }; people.forEach(s => NAME[s.user_id] = s.name);
+  $('#stBody').innerHTML = `<div class="toolbar"><select id="acU">${opt('', L('كل الموظفين', 'All staff'), ACT_F.u)}${opt(S.user.id, L('أنا (مدير النظام)', 'Me (administrator)'), ACT_F.u)}
+      ${people.map(s => opt(s.user_id, s.name, ACT_F.u)).join('')}</select>
+      <select id="acCat">${ACT_CATS.map(c => opt(c[0], L(c[1], c[2]), ACT_F.cat)).join('')}</select></div>
+    <div class="toolbar">${rangePicker('acR', ACT_F.from, ACT_F.to, ['today', 'yesterday', '7d', '30d', 'month', 'last'])}</div>
+    <div id="acSum"></div><div class="panel" id="acList"><div class="empty">${L('جارٍ التحميل...', 'Loading...')}</div></div>`;
+  const LIM = 200;
+  let rows = [], more = false;
+  const draw = () => {
+    const showWho = !ACT_F.u;
+    let lastDay = '';
+    $('#acList').innerHTML = `<div class="table-wrap"><table class="t act-t"><thead><tr><th>${L('الوقت', 'Time')}</th>${showWho ? `<th>${L('الشخص', 'Who')}</th>` : ''}
+        <th>${L('النشاط', 'Activity')}</th></tr></thead><tbody>
+      ${rows.map(r => { const day = dt(r.at); const sep = day !== lastDay ? `<tr class="grp"><td colspan="3"><b class="num">${day}</b></td></tr>` : ''; lastDay = day;
+        return `${sep}<tr><td class="num small nowrap">${tm(r.at)}</td>${showWho ? `<td class="small nowrap"><b>${esc(NAME[r.user_id] || r.actor_name || '')}</b></td>` : ''}
+          <td>${actHead(r)}${actBody(r)}</td></tr>`; }).join('')
+        || `<tr><td colspan="3" class="empty">${L('مفيش نشاط في الفترة دي', 'No activity in this period')}</td></tr>`}
+      </tbody></table></div>
+      ${more ? `<div class="pager"><span>${L(`${rows.length} نشاط`, `${rows.length} entries`)}</span><button class="btn sm" id="acMore">${L('عرض المزيد', 'Show more')}</button></div>` : ''}`;
+    if ($('#acMore')) $('#acMore').onclick = e => busy(e.currentTarget, () => load(true));
+    $$('#acList [data-order]').forEach(a => a.onclick = async ev => { ev.preventDefault();
+      const { data: o } = await sb.from('orders').select('*').eq('id', a.dataset.order).maybeSingle();
+      o ? openOrder(o, () => {}) : toast(L('الطلب ده اتحذف', 'This order was deleted'), 'err'); });
+    $$('#acList [data-set]').forEach(a => a.onclick = async ev => { ev.preventDefault();
+      const { data: st } = await sb.from('settlements').select('*').eq('id', a.dataset.set).maybeSingle();
+      st ? openSettlement(st, () => {}) : toast(L('التسوية دي اتحذفت', 'This settlement was deleted'), 'err'); });
+    $$('#acList [data-lead]').forEach(a => a.onclick = ev => { ev.preventDefault(); if (a.dataset.lead) openCrmLead(a.dataset.lead); });
+  };
+  const load = async (append) => {
+    const [f, t] = rangeDates(ACT_F.from, ACT_F.to);
+    const args = { p_user: ACT_F.u || null, p_from: f ? f.toISOString() : null, p_to: t ? t.toISOString() : null, p_cat: ACT_F.cat || null,
+      p_limit: LIM, p_offset: append ? rows.length : 0 };
+    const [{ data, error }, sm] = await Promise.all([sb.rpc('staff_activity_feed', args),
+      append || ACT_F.u ? Promise.resolve({ data: null }) : sb.rpc('staff_activity_summary', { p_from: args.p_from || new Date(Date.now() - 7 * 864e5).toISOString(), p_to: args.p_to || new Date(Date.now() + 6e4).toISOString() })]);
+    if (!$('#acList')) return;
+    if (error) { $('#acList').innerHTML = `<div class="empty">${noMig(error) ? L('سجل النشاط محتاج تشغيل migration-023', 'The activity log needs migration-023') : esc(errMsg(error))}</div>`; return; }
+    rows = append ? rows.concat(data || []) : (data || []);
+    more = (data || []).length === LIM;
+    if (!append) {
+      const S2 = (sm.data || []).slice().sort((a, b) => b.actions - a.actions);
+      $('#acSum').innerHTML = !S2.length ? '' : `<div class="panel" style="margin-bottom:12px"><div class="panel-h">${L('ملخص الفترة', 'Period summary')}</div><div class="table-wrap"><table class="t">
+        <thead><tr><th>${L('الشخص', 'Who')}</th><th>${L('أول ظهور', 'First seen')}</th><th>${L('آخر ظهور', 'Last seen')}</th><th>${L('عدد العمليات', 'Actions')}</th></tr></thead><tbody>
+        ${S2.map(s => `<tr class="click" data-u="${s.user_id}"><td><b>${esc(NAME[s.user_id] || '—')}</b></td><td class="num small">${dtt(s.first_at)}</td><td class="num small">${dtt(s.last_at)}</td>
+          <td class="num">${s.actions}</td></tr>`).join('')}</tbody></table></div></div>`;
+      $$('#acSum tr[data-u]').forEach(tr => tr.onclick = () => { ACT_F.u = tr.dataset.u; staffActivity(); });
+    }
+    draw();
+  };
+  $('#acU').onchange = e => { ACT_F.u = e.target.value; load(); };
+  $('#acCat').onchange = e => { ACT_F.cat = e.target.value; load(); };
+  bindRange('acR', (f, t) => { ACT_F.from = f; ACT_F.to = t; load(); });
+  await load();
+  // النشاط الجديد بيظهر لوحده (لو ما فتحتش «عرض المزيد»)
+  liveOn(['orders', 'settlements', 'clients', 'client_shipping_rates', 'acc_entries', 'returns_handovers', 'qp_invoices', 'price_packages',
+    'client_sales_reps', 'staff_members', 'crm_leads', 'crm_tasks'], () => rows.length <= LIM ? load() : null, { area: '#acList', gap: 10000 });
 }
 
 function openStaff(u) {
@@ -3910,7 +4308,7 @@ function openStaff(u) {
 const APP_V = (() => { const s = [...document.scripts].find(x => /app\.js/.test(x.src)); return (s && (s.src.match(/[?&]v=([\w.]+)/) || [])[1]) || ''; })();
 window.OP = { sb, S, can, L, EN, $, $$, esc, num, money, egp, dt, dtt, opt, toast, fail, errMsg, formValues, nz, modal, confirmBox, busy,
   setTitle, fcard, pct, periodSelect, isoDay, monthStart, dateInput, hashParam, printHtml, reportHead, loadXLSX, normAr, normPhone,
-  toLatinDigits, matchGov, GOVS, govOptions, DICT, PATTERNS, loadClients, refreshBell };
+  toLatinDigits, matchGov, GOVS, govOptions, DICT, PATTERNS, loadClients, refreshBell, liveOn };
 let crmReady = null;
 function loadCrm() {
   if (window.OperativeCRM) return Promise.resolve();
@@ -3937,7 +4335,7 @@ async function openCrmLead(id) {
   if (!configured) return renderSetupNeeded();
   const { data: { session } } = await sb.auth.getSession();
   if (session) await start(session.user); else renderLogin();
-  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && S.user) { S.user = null; renderLogin(); } });
+  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && S.user) { S.user = null; stopPresence(); liveStop(); renderLogin(); } });
 })();
 
 })();
