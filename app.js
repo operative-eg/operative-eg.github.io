@@ -49,6 +49,10 @@ document.documentElement.lang = LANG;
 document.documentElement.dir = EN ? 'ltr' : 'rtl';
 
 const DICT = {
+  // المبيعات (CRM)
+  'المبيعات': 'Sales', 'قسم المبيعات: عملاؤه المحتملون ومتابعاتهم (أرقام عملائه فقط)': 'Sales: own leads and follow-ups (own numbers only)',
+  'مدير مبيعات: عملاء فريقه والتوزيع والتفويض والتارجت والتحويل إلى عميل': 'Sales manager: team leads, assignment, delegation, targets and conversion to client',
+  'رفع عملاء محتملين من ملف Excel': 'Import leads from an Excel file',
   // عام
   'ج': 'EGP', '/ طلب': '/ order', 'نعم': 'Yes', 'لا': 'No', 'حفظ': 'Save', 'عرض': 'View', 'رفض': 'Reject', 'رفع': 'Upload',
   'فشل': 'Failed', 'حذف': 'Delete', 'تعديل': 'Edit', 'تطبيق': 'Apply', 'تأكيد': 'Confirm', 'إغلاق': 'Close', 'رجوع': 'Back',
@@ -466,10 +470,14 @@ const PERMS = [
   ['settlements_edit', 'إنشاء التسويات وتسجيل الدفع ورفع صور التحويل'],
   ['accounting_view', 'عرض الحسابات والتقارير المالية'],
   ['accounting_edit', 'تسجيل القيود والمصروفات وإدارة دليل الحسابات وفواتير شركة الشحن'],
+  ['crm_access', 'قسم المبيعات: عملاؤه المحتملون ومتابعاتهم (أرقام عملائه فقط)'],
+  ['crm_manager', 'مدير مبيعات: عملاء فريقه والتوزيع والتفويض والتارجت والتحويل إلى عميل'],
+  ['crm_import', 'رفع عملاء محتملين من ملف Excel'],
 ];
 // الصلاحية ← ما تحتاجه لتعمل
 const PERM_NEEDS = { orders_edit: ['orders_view'], orders_finance: ['orders_view'], orders_delete: ['orders_view'], qp: ['orders_view'],
-  dashboard: ['orders_view'], clients_edit: ['clients_view'], settlements_edit: ['settlements_view'], accounting_edit: ['accounting_view'] };
+  dashboard: ['orders_view'], clients_edit: ['clients_view'], settlements_edit: ['settlements_view'], accounting_edit: ['accounting_view'],
+  crm_manager: ['crm_access'], crm_import: ['crm_access'] };
 // العملاء لا يرون اسم شركة الشحن
 const courierText = t => !t ? '' : S.isAdmin ? t
   : String(t).replace(/qp\s*express|qpxpress|\bqp\b|كيو\s*بي/gi, 'شركة الشحن');
@@ -485,6 +493,7 @@ const ICON = {
   settlements: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>',
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>',
   accounting: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h2M14 10h2M8 14h2M14 14h2M8 18h2M14 18h2"/></svg>',
+  crm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18"/><path d="M6 20v-6M11 20V9M16 20v-9"/><path d="M4 9l5-4 4 3 7-5"/><path d="M16 3h4v4"/></svg>',
   staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M17 3.5l1.5 1.5L21 2.5"/></svg>',
 };
 
@@ -559,7 +568,8 @@ async function loadClients() {
 // =====================================================================
 const NAV_ADMIN = [['dashboard', 'لوحة التحكم', () => can('dashboard')], ['orders', 'الطلبات', () => can('orders_view')],
   ['clients', 'العملاء', () => can('clients_view') || can('clients_edit')], ['settlements', 'التسويات', () => can('settlements_view')],
-  ['accounting', 'الحسابات', () => can('accounting_view') || can('accounting_edit')], ['staff', 'الموظفين', () => S.isOwner]];
+  ['accounting', 'الحسابات', () => can('accounting_view') || can('accounting_edit')], ['crm', 'المبيعات', () => can('crm_access')],
+  ['staff', 'الموظفين', () => S.isOwner]];
 const NAV_CLIENT = [['dashboard', 'لوحة التحكم'], ['orders', 'طلباتي'], ['settlements', 'التسويات']];
 const navItems = () => S.isAdmin ? NAV_ADMIN.filter(n => n[2]()) : NAV_CLIENT;
 
@@ -595,7 +605,7 @@ function route() {
   if (!nav.some(([k]) => k === page)) page = nav[0][0];
   $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.k === page));
   $('#view').innerHTML = '<div class="empty">جارٍ التحميل...</div>';
-  ({ dashboard: viewDashboard, orders: viewOrders, clients: viewClients, settlements: viewSettlements, accounting: viewAccounting, staff: viewStaff })[page]();
+  ({ dashboard: viewDashboard, orders: viewOrders, clients: viewClients, settlements: viewSettlements, accounting: viewAccounting, crm: viewCrm, staff: viewStaff })[page]();
 }
 window.addEventListener('hashchange', route);
 const setTitle = t => { $('#pageTitle').textContent = t; document.title = `${tr(t)} — Operative`; };
@@ -1343,7 +1353,22 @@ function startBell() {
   if (!S.isAdmin) return;
   refreshBell(); bellTimer = setInterval(refreshBell, 60000);
 }
+function crmNotifText(n) {
+  const who = n.actor_name || '';
+  switch (n.kind) {
+    case 'crm_assigned': return L(`أسند إليك ${who} عملاء محتملين`, `${who} assigned leads to you`);
+    case 'crm_shared': return L(`فوّضك ${who} على عميل محتمل`, `${who} delegated a lead to you`);
+    case 'crm_task': return L('حان موعد متابعة عميل', 'A lead follow-up is due');
+    case 'crm_reveal_limit': return L(`${who} وصل للحد اليومي لإظهار أرقام العملاء`, `${who} reached the daily number-reveal limit`);
+    case 'crm_stale': return L('ملخص المبيعات اليومي', 'Daily sales digest');
+    case 'crm_dup': return L(`عميل محتمل مشتبه في تكراره (أضافه ${who})`, `Possible duplicate lead (added by ${who})`);
+    case 'crm_convert': return L(`${who} يطلب تحويل عميل محتمل إلى عميل`, `${who} requests converting a lead to a client`);
+    case 'crm_won': return L('تم التعاقد مع عميلك وتحويله إلى عميل', 'Your lead was converted to a client');
+    default: return L('إشعار من المبيعات', 'Sales notification');
+  }
+}
 function notifText(n) {
+  if (n.kind && n.kind.startsWith('crm_')) return crmNotifText(n);
   const no = n.order_no ? `#${n.order_no}` : '';
   if (n.kind === 'request') return L(`طلب تعديل حسابات جديد على الطلب ${no} من ${n.actor_name}`, `New accounts change request on order ${no} from ${n.actor_name}`);
   if (n.kind === 'status') {
@@ -1371,12 +1396,15 @@ async function openNotifications() {
           — ${esc(r.created_by_name || '')} <span class="muted small num">${dtt(r.created_at)}</span><div class="small">${esc(r.body.slice(0, 160))}</div></a>`; }).join('')
         || `<p class="muted small">${L('لا توجد طلبات مفتوحة.', 'No open requests.')}</p>`}</div>` : ''}
     <div class="section-title">${L('آخر الإشعارات', 'Latest notifications')}</div>
-    <div class="req-list">${(list || []).map(n => `<a href="#" class="req-item ${n.read_at ? '' : 'unread'}" data-id="${n.request_id || ''}">
+    <div class="req-list">${(list || []).map(n => `<a href="#" class="req-item ${n.read_at ? '' : 'unread'}" data-id="${n.request_id || ''}" data-lead="${n.lead_id || ''}" data-crm="${/^crm_/.test(n.kind || '') ? n.kind : ''}">
         ${esc(notifText(n))} <span class="muted small num">${dtt(n.created_at)}</span>
         ${n.snippet ? `<div class="small muted">${esc(n.snippet)}</div>` : ''}</a>`).join('')
       || `<p class="muted small">${L('لا توجد إشعارات.', 'No notifications.')}</p>`}</div>`,
     footer: `<button class="btn" id="ntAll">${L('تعليم الكل كمقروء', 'Mark all as read')}</button>` });
-  $$('.req-item', m.el).forEach(a => a.onclick = ev => { ev.preventDefault(); if (a.dataset.id) { m.close(); openRequest(+a.dataset.id); } });
+  $$('.req-item', m.el).forEach(a => a.onclick = ev => { ev.preventDefault();
+    if (a.dataset.id) { m.close(); openRequest(+a.dataset.id); }
+    else if (a.dataset.lead) { m.close(); openCrmLead(a.dataset.lead); }
+    else if (a.dataset.crm) { m.close(); location.hash = a.dataset.crm === 'crm_reveal_limit' ? '#/crm/security' : '#/crm/today'; } });
   $('#ntAll', m.el).onclick = async () => { await sb.rpc('notifications_mark_read', {}); refreshBell(); $$('.unread', m.el).forEach(x => x.classList.remove('unread')); };
 }
 
@@ -3029,6 +3057,32 @@ function openStaff(u) {
     if (error) return fail(error);
     toast('تم حذف الموظف', 'ok'); m.close(); viewStaff();
   };
+}
+
+// =====================================================================
+//  قسم المبيعات (CRM) — الكود في crm.js ويُحمَّل عند أول فتح للقسم
+// =====================================================================
+const APP_V = (() => { const s = [...document.scripts].find(x => /app\.js/.test(x.src)); return (s && (s.src.match(/[?&]v=([\w.]+)/) || [])[1]) || ''; })();
+window.OP = { sb, S, can, L, EN, $, $$, esc, num, money, egp, dt, dtt, opt, toast, fail, errMsg, formValues, nz, modal, confirmBox, busy,
+  setTitle, fcard, pct, periodSelect, isoDay, monthStart, dateInput, hashParam, printHtml, reportHead, loadXLSX, normAr, normPhone,
+  toLatinDigits, matchGov, GOVS, govOptions, DICT, PATTERNS, loadClients, refreshBell };
+let crmReady = null;
+function loadCrm() {
+  if (window.OperativeCRM) return Promise.resolve();
+  return crmReady || (crmReady = new Promise((res, rej) => {
+    const sc = document.createElement('script'); sc.src = 'crm.js' + (APP_V ? '?v=' + APP_V : '');
+    const bad = () => { crmReady = null; rej(new Error(L('تعذّر تحميل قسم المبيعات، تحقق من اتصالك بالإنترنت', 'Could not load the sales section, check your connection'))); };
+    sc.onload = () => window.OperativeCRM ? res() : bad();
+    sc.onerror = bad;
+    document.head.appendChild(sc);
+  }));
+}
+async function viewCrm() {
+  setTitle('المبيعات');
+  try { await loadCrm(); await window.OperativeCRM.view(); } catch (e) { fail(e); }
+}
+async function openCrmLead(id) {
+  try { await loadCrm(); await window.OperativeCRM.openLead(id); } catch (e) { fail(e); }
 }
 
 // =====================================================================
